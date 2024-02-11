@@ -158,7 +158,7 @@ local to_get = {
         print_warning("Failed to connect to pinestore.")
       end
     end
-    os.reboot()
+    shell.run("/Startup/StartBIM.lua")
   else
     print("n")
     sleep()
