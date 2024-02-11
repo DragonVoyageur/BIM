@@ -9,7 +9,7 @@ local to_get = {
     "extern:/BIM/Functions/VariableStorage.lua:https://raw.githubusercontent.com/DragonVoyageur/BIM/main/BIM/Functions/VariableStorage.lua"
   }
   local program_name = "BIM"
-  local pinestore_id = 58 -- Set this to the ID of the pinestore project if you wish to note to pinestore that a download has occurred.
+  local pinestore_id = nil -- Set this to the ID of the pinestore project if you wish to note to pinestore that a download has occurred.
   
   -- #########################################
   
