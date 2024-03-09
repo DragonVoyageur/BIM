@@ -40,6 +40,8 @@ end
 local function ResizeBar(bar,scrollIndex,screen,list,columns)
     local screenSize={screen.getSize()}
     local barSize={bar.getSize()}
+    local bcolor=colors.toBlit(bar.getBackgroundColor())
+    local tcolor=colors.toBlit(bar.getTextColor())
     local lenght=math.max(math.min((barSize[2]/(#list/columns))*barSize[2],barSize[2]),1)
     local max=math.ceil(barSize[2]-lenght)
     local percent=(scrollIndex/((#list/columns)-screenSize[2]))
@@ -49,9 +51,9 @@ local function ResizeBar(bar,scrollIndex,screen,list,columns)
     for i=1, barSize[2],1 do
         bar.setCursorPos(1,i)
         if i>offset and i<=lenght+offset then
-            bar.blit(' ','0','0')
+            bar.blit(' ',tcolor,tcolor)
         else
-            bar.blit(' ','7','7')
+            bar.blit(' ',bcolor,bcolor)
         end
     end
 end
@@ -60,7 +62,8 @@ function Print(list,selected,scrollIndex,bar,screen,columns)
     if bar~=nil then
         ResizeBar(bar,scrollIndex,screen,list,columns)
     end
-    
+    local bcolor=colors.toBlit(screen.getBackgroundColor())
+    local tcolor=colors.toBlit(screen.getTextColor())
     local screenSize={screen.getSize()}
     local width = math.floor(screenSize[1] / columns)
     local clickList={}
@@ -85,7 +88,7 @@ function Print(list,selected,scrollIndex,bar,screen,columns)
         for j=screenPos[1]+pos[1]-1,screenPos[1]+pos[1]+width-1,1 do
             table.insert(clickList[screenPos[2]+pos[2]-1],j,i)
         end
-        screen.blit(text,string.rep('0', width),string.rep(selectlist[i] and '7' or 'f', width))
+        screen.blit(text,string.rep(tcolor, width),string.rep(selectlist[i] and '7' or bcolor, width))
     end
     pos={screen.getCursorPos()}
     screen.write(string.rep(' ',1+screenSize[1]-pos[1]))
@@ -106,4 +109,22 @@ function Clicked(clickList,x, y)
     return value
 end
 
-return {Print=Print,Click=Clicked}
+function Create(parent,x,y,x2,y2,bcolor,tcolor,hasbar,bbcolor,btcolor)
+    local win=window.create(parent,x,y,1+x2-x-(hasbar and 1 or 0),1+y2-y)
+    win.setBackgroundColor(bcolor)
+    win.setTextColor(tcolor)
+    win.clear()
+    local winSize={ win.getSize() }
+
+    local bar
+    if hasbar then
+        bar=window.create(parent,x2,y,1,1+y2-y)
+        bar.setBackgroundColor(bbcolor or colors.gray)
+        bar.setTextColor(btcolor)
+        bar.clear()
+    end
+    
+    return win,winSize,bar
+end
+
+return {Print=Print,Click=Clicked,Create=Create}

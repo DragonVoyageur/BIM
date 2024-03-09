@@ -34,14 +34,15 @@ function SortItems()
         table.insert(itemlist,{count,disName})
         table.insert(list,{count,disName,item})
     end
-    table.sort(itemlist, function(left,right)
-        return left[2]<right[2]
-    end)
-    table.sort(list, function(left,right)
-        return left[2]<right[2]
-    end)
     Vs.list=itemlist
     List=list
+    SortList()
+end
+
+function SortList()
+    table.sort(List, SortFunction[2])
+    Filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
+    table.sort(Filtered, SortFunction[2])
 end
 
 function StoreItems()
@@ -81,9 +82,9 @@ function LoopSort()
         if Buffer then
             CountChests()
             SortItems()
-            ScrollIndex=math.min(math.max(ScrollIndex,0),math.max(math.ceil(#Vs.list/ColAmount)-ScreenSize[2],0))
-            ClickList=Um.Print(Vs.list,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
-            if Monitor then SClickList=Um.Print(Vs.list,Selected,0,nil,SecondScreen,ColAmount) end
+            ScrollIndex=math.min(math.max(ScrollIndex,0),math.max(math.ceil(#Filtered/ColAmount)-ScreenSize[2],0))
+            PrintScreen()
+            if Monitor then SClickList=Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
             sleep(10)
         else
             Screen.clear()
@@ -100,20 +101,21 @@ end
 function DropItem(id)
     if id==nil or List[id]==nil then return nil end
     local stack = 0
-    Selected={Vs.list[id]}
+    Selected={Filtered[id]}
     for i, data in ipairs(Vs.chests[List[id][3]]) do
         if data.count>0 then
             local transferd= Buffer.pullItems(data.side, data.slot, 64 - stack)
             stack = stack + transferd
             Vs.list[id][1] = Vs.list[id][1] - transferd
+            Filtered[id][1] = Filtered[id][1] - transferd
             Vs.chests[data.name][i].count=Vs.chests[data.name][i].count-transferd
             if stack >= 64 then
                 break
             end
         end
     end
-    Um.Print(Vs.list,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
-    if Monitor then Um.Print(Vs.list,Selected,0,nil,SecondScreen,ColAmount) end
+    Um.Print(Filtered,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+    if Monitor then Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
     turtle.drop() 
     repeat
         os.queueEvent('turtle_inventory_ignore')
@@ -124,15 +126,24 @@ function DropItem(id)
     os.queueEvent('turtle_inventory_start')
 end
 
+function PrintScreen()
+    SearchBar.setCursorBlink(false)
+    ClickList=Um.Print(Filtered,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+    if Searching then
+        SearchBar.setCursorBlink(true)
+        SearchBar.setCursorPos(math.min(#Stext,SearchLenght)+1,1)
+    end
+end
+
 function LoopPrint()
     while true do
         if Buffer then
             local event = { os.pullEvent() }
-            if event[1] == 'mouse_scroll'  and ScrollIndex ~=math.min(math.max(ScrollIndex + event[2],0),math.max(math.ceil(#Vs.list/ColAmount)-ScreenSize[2],0)) then
+            if event[1] == 'mouse_scroll'  and ScrollIndex ~=math.min(math.max(ScrollIndex + event[2],0),math.max(math.ceil(#Filtered/ColAmount)-ScreenSize[2],0)) then
                 ScrollIndex = ScrollIndex + event[2]
-                ClickList=Um.Print(Vs.list,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
-                if Monitor then SClickList=Um.Print(Vs.list,Selected,0,nil,SecondScreen,ColAmount) end
-            elseif event[1] == 'mouse_click' then
+                PrintScreen()
+                if Monitor then SClickList=Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
+            elseif event[1] == 'mouse_click' and event[4]>=2 then
                 DropItem(Um.Click(ClickList,event[3], event[4]))
             elseif event[1] =='monitor_touch' and Monitor then
                 DropItem(Um.Click(SClickList,event[3], event[4]))
@@ -151,8 +162,8 @@ function LoopEnv()
         LoadEnv()
         Selected=0
         ScrollIndex=0
-        ClickList=Um.Print(Vs.list,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
-        if Monitor then SClickList=Um.Print(Vs.list,Selected,0,nil,SecondScreen,ColAmount) end
+        PrintScreen()
+        if Monitor then SClickList=Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
         os.queueEvent('Updated_Env')
     end
 end
@@ -185,12 +196,101 @@ function LoadEnv()
     end
 end
 
+function LoopTopBar()
+    while true do
+        local event = { os.pullEvent() }
+        if  event[1] == 'mouse_click' and event[4]==1 and event[3]>(#SearchTitel) and event[3]<(SBSize[1]+#SearchTitel) then
+            BeginSearch()
+        elseif event[1] == 'mouse_click' and event[3]>(SearchSize[1]-#SortDisplay[SortFunction[1]]) then
+            if SortFunction[1]+1<=4 then
+                SortFunction={SortFunction[1]+1,ListSort[SortFunction[1]+1]}
+            else 
+                SortFunction={1,ListSort[1]}
+            end
+            Search.setCursorPos(SearchSize[1]-#SortDisplay[SortFunction[1]]-3,1)
+            Search.write("   "..SortDisplay[SortFunction[1]])
+            SortList()
+            PrintScreen()
+        end
+    end
+end
+
+function BeginSearch()
+    SearchBar.setCursorPos(math.min(#Stext+1,SearchLenght-1),1)
+    SearchBar.setCursorBlink(true)
+    Searching=true
+    while true do
+        local event = { os.pullEvent() }
+        if  event[1] == 'mouse_click' and not (event[4]==1 and event[3]>(#SearchTitel) and event[3]<(SBSize[1]+#SearchTitel)) then
+            break
+        elseif  event[1] == 'char' then
+            if SearchLenght<=#Stext+3 then
+                SearchBar.setCursorPos(1,1)
+                SearchBar.write(Stext:sub(#Stext-SearchLenght+3, -1))
+            end
+            SearchBar.write(event[2])
+            Stext=Stext..event[2]
+        elseif event[1] == 'key'  and #Stext>0 then
+            local k= keys.getName(event[2])
+            if k == 'backspace' then
+                if SearchLenght<=#Stext then
+                    SearchBar.setCursorPos(1,1)
+                    SearchBar.write(Stext:sub(#Stext+1-SearchLenght, -2))
+                    SearchBar.write(' ')
+                else
+                    SearchBar.setCursorPos(#Stext,1)
+                    SearchBar.write(' ')
+                end
+                Stext=Stext:sub(1, -2)
+            end
+        end
+        if  event[1] == 'char' or event[1] == 'key' then
+        SortList()
+        PrintScreen()
+        end
+    end
+    SearchBar.setCursorBlink(false)
+    Searching=false
+end
+
+function MetaCall(table)
+    local file =fs.open(".test3",'w')
+    file.write(textutils.serialise( table))
+    file.close()
+    local keylist={}
+    for i,v in ipairs(table) do
+        keylist[v[2]:lower():gsub("%s+", "")]=i
+    end
+    return keylist
+end
+
+function Filter(list)
+    if #Stext<1 then Filtered=list return end
+    
+    setmetatable(list,{__call=MetaCall})
+    local searchtext=Stext:lower():gsub("%s+", "")
+    local inverted=list()
+    local filtering={}
+    local results=textutils.complete(searchtext,inverted)
+    
+    for i,v in ipairs(results) do
+        local value=inverted[searchtext..v]
+        if value then
+            table.insert(filtering,Vs.list[value])
+        end
+    end
+
+    Filtered=filtering
+    
+end
+
 --#endregion Functions--
 
 --#region Main--
 
 --#region Globals--
 List={}
+Filtered={}
 ClickList = {}
 SClickList={}
 ScrollIndex = 0
@@ -199,15 +299,30 @@ Buffer=nil
 Chests={}
 Monitor=nil
 
+ListSort={
+    function(left,right)return left[2]<right[2]end,
+    function(left,right)return left[2]>right[2]end,
+    function(left,right)return left[1]<right[1]end,
+    function(left,right)return left[1]>right[1]end,
+}
+SortFunction={1,ListSort[1]}
+SortDisplay={
+    "Name ^",
+    "Name v",
+    "Amount ^",
+    "Amount v",
+}
 MainScreen=term.current()
 MainSize={ MainScreen.getSize() }
-ScrollBar=window.create(MainScreen,MainSize[1],1,1,MainSize[2])
-ScrollBar.setBackgroundColor(colors.gray)
-Screen=window.create(MainScreen,1,1,MainSize[1]-1,MainSize[2])
-ScreenSize={ Screen.getSize() }
 SecondScreen=window.create(MainScreen,1,1,1,1)
 SecondScreen.setVisible(false)
-
+Screen,ScreenSize,ScrollBar=Um.Create(MainScreen,1,2,MainSize[1],MainSize[2],colors.black,colors.white,true,colors.gray,colors.white)
+Search,SearchSize=Um.Create(MainScreen,1,1,MainSize[1],1,colors.lightGray,colors.black)
+SearchTitel='Search:'
+Searching=false
+SearchLenght=(SearchSize[1]/2)-#SearchTitel
+SearchBar,SBSize=Um.Create(Search,#SearchTitel+1,1,#SearchTitel+1+SearchLenght,1,colors.lightGray,colors.black)
+Stext=""
 ColAmount=2
 DropSide=turtle.dropDown
 SuckSide=turtle.suckDown
@@ -219,10 +334,13 @@ repeat
 until Vs.getEnv()~=nil
 LoadEnv()
 
-Screen.clear()
-ScrollBar.clear()
+
 Screen.setCursorPos(1,1)
 Screen.write('Sorting...')
-
-parallel.waitForAll(LoopSort,LoopPrint,StoreItems, LoopEnv)
+Search.setCursorPos(1,1)
+Search.write(SearchTitel..string.rep(' ',(SearchLenght)+1)..'|')
+Search.setCursorPos(SearchSize[1]-#SortDisplay[SortFunction[1]],1)
+Search.write(SortDisplay[SortFunction[1]])
+SearchBar.clear()
+parallel.waitForAll(LoopSort,LoopPrint,StoreItems, LoopEnv,LoopTopBar)
 --#endregion
