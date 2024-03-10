@@ -38,9 +38,9 @@ for i,file in ipairs(Files) do
   isntall.close()
 end
 ---------------
-Print('Done')
+print('Done')
 if Run then
-  Print('Running program')
+  print('Running program')
  if fs.exists(Run) then
   shell.run(Run)
  else
