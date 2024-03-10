@@ -34,7 +34,8 @@ You may connect more inventories and/or monitors through more wired modems.
 ## Inventory Managment
 The Inventory tab is where you can retrieve and deposit items, and display all items in the connected inventories.
 <br>
-![InventoryManager](https://github.com/DragonVoyageur/BIM/assets/158514173/1a284278-4626-4548-97b1-defe36c6a194)
+
+![InventoryManager](https://github.com/DragonVoyageur/BIM/assets/158514173/974690df-7fc3-41ca-a133-71ebe9ba0e27)
 <br>
 You may click the item name to automatically retrieve the item from the inventories.
 <br>
