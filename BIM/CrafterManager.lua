@@ -96,7 +96,7 @@ function CraftOne()
             end
         end
     end
-    peripheral.call('left','craft')
+    Workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
     DropSide()
     Vs.chests=list
@@ -161,7 +161,7 @@ function CraftStack()
             end
         end
     end
-    peripheral.call('left','craft')
+    Workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
     DropSide()
     Vs.chests=list
@@ -268,6 +268,7 @@ RecipeMenu=window.create(MainScreen,1,MainSize[2],MainSize[1],1)
 ColAmount=2
 DropSide=turtle.drop
 SuckSide=turtle.suckDown
+Workbench = peripheral.find("workbench")
 
 
 --#endregion Globals--
