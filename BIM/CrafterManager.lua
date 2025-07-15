@@ -16,8 +16,8 @@ function ReadRecipe()
     return false
 end
 
-function  LoadFile(name)
-    if name==nil then 
+function LoadFile(name)
+    if name==nil then
         printError('No file name given')
         return nil
     end
@@ -25,20 +25,36 @@ function  LoadFile(name)
         printError(name..' file not found')
         return nil
     end
-    local file = fs.open(name, 'r')
-    local value = textutils.unserialise(file.readAll())
-    file.close()
-    return value
+
+    local file = fs.open(name, 'w')
+    if file then
+        local serialized = file.readAll()
+        if serialized == nil then
+            return
+        end
+        local value = textutils.unserialise(serialized)
+        file.close()
+        return value
+    else
+        error("Failed to open " .. name .. " for writing") -- in case of read only / disk full etc.
+    end
+
 end
 
 function StoreFile(name,value)
-    if name==nil then 
+    if name==nil then
         printError('No file name given')
         return nil
     end
     local file =fs.open(name,'w')
-    file.write(textutils.serialise(value))
-    file.close()
+    if file then
+        file.write(textutils.serialise(value))
+        file.close()
+    else
+        error("Failed to open " .. name .. " for writing") -- in case of read only / disk full etc.
+    end
+
+
 end
 
 function DeleteRecipe()
@@ -79,8 +95,8 @@ function CraftOne()
                 temp[i]=temp2
                 break
             end
-        end 
-        
+        end
+
         if counter >0 then
             return true
         end
@@ -141,8 +157,8 @@ function CraftStack()
                     temp[i]=temp2
                     break
                 end
-            end 
-            
+            end
+
             if counter>0 then
                 multiplier=math.floor((item.count*multiplier)-counter/item.count)
                 list = Vs.chests
@@ -217,7 +233,7 @@ function LoopPrint()
             ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
         elseif event[1] == 'mouse_click' then
             if event[4]>ScreenSize[2] then
-                
+
                 ClickedMenu(event[3])
             else
                 Selected=Recipes[Um.Click(ClickList,event[3], event[4])]
@@ -281,7 +297,7 @@ ScrollBar.setBackgroundColor(colours.grey)
 RecipeMenu.setBackgroundColor(colours.lightGrey)
 Screen.clear()
 ScrollBar.clear()
-RecipeMenu.clear() 
+RecipeMenu.clear()
 if not fs.exists(Vs.name..'/Recipes/') then
     fs.makeDir(Vs.name..'/Recipes')
 end

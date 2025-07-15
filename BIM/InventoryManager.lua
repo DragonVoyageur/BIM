@@ -3,7 +3,7 @@ function CountChests()
     local chestlist={}
     for i,chest in ipairs(Chests) do
         local items=chest.list()
-        for j,item in pairs(items) do    
+        for j,item in pairs(items) do
             local name=item.name
             if chestlist[name]==nil then chestlist[name]={} end
             table.insert(chestlist[name],{['side']=peripheral.getName(chest),['slot']=j,['count']=item.count,['name']=name})
@@ -116,12 +116,12 @@ function DropItem(id)
     end
     Um.Print(Filtered,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
     if Monitor then Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
-    turtle.drop() 
+    turtle.drop()
     repeat
         os.queueEvent('turtle_inventory_ignore')
         turtle.select(16)
         SuckSide()
-        turtle.drop() 
+        turtle.drop()
     until table.maxn(Buffer.list())==0
     os.queueEvent('turtle_inventory_start')
 end
@@ -187,7 +187,7 @@ function LoadEnv()
     ColAmount =  tonumber(Vs.getEnv('Columns'))
 
     Monitor=peripheral.wrap(Vs.getEnv('Monitor'))
-    if Monitor then 
+    if Monitor then
         local monitorSize={Monitor.getSize()}
         SecondScreen.reposition(1,1,monitorSize[1],monitorSize[2],Monitor)
         SecondScreen.setVisible(true)
@@ -204,7 +204,7 @@ function LoopTopBar()
         elseif event[1] == 'mouse_click' and event[3]>(SearchSize[1]-#SortDisplay[SortFunction[1]]) then
             if SortFunction[1]+1<=4 then
                 SortFunction={SortFunction[1]+1,ListSort[SortFunction[1]+1]}
-            else 
+            else
                 SortFunction={1,ListSort[1]}
             end
             Search.setCursorPos(SearchSize[1]-#SortDisplay[SortFunction[1]]-3,1)
@@ -254,25 +254,29 @@ function BeginSearch()
 end
 
 function MetaCall(table)
-    local file =fs.open(".test3",'w')
-    file.write(textutils.serialise( table))
-    file.close()
-    local keylist={}
-    for i,v in ipairs(table) do
-        keylist[v[2]:lower():gsub("%s+", "")]=i
+    local file = fs.open(".test3", 'w')
+    if file then
+        file.write(textutils.serialize(table))
+        file.close()
+    else
+        error("Failed to open .test3 for writing") -- in case of read only / disk full etc.
+    end
+    local keylist = {}
+    for i, v in ipairs(table) do
+        keylist[v[2]:lower():gsub("%s+", "")] = i
     end
     return keylist
 end
 
 function Filter(list)
     if #Stext<1 then Filtered=list return end
-    
+
     setmetatable(list,{__call=MetaCall})
     local searchtext=Stext:lower():gsub("%s+", "")
     local inverted=list()
     local filtering={}
     local results=textutils.complete(searchtext,inverted)
-    
+
     for i,v in ipairs(results) do
         local value=inverted[searchtext..v]
         if value then
@@ -281,7 +285,7 @@ function Filter(list)
     end
 
     Filtered=filtering
-    
+
 end
 
 --#endregion Functions--
