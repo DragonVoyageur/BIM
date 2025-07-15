@@ -293,8 +293,8 @@ repeat
 until Vs.getEnv()~=nil
 LoadEnv()
 
-ScrollBar.setBackgroundColor(colours.grey)
-RecipeMenu.setBackgroundColor(colours.lightGrey)
+ScrollBar.setBackgroundColor(colors.gray)
+RecipeMenu.setBackgroundColor(colors.lightGray)
 Screen.clear()
 ScrollBar.clear()
 RecipeMenu.clear()
