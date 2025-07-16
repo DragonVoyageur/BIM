@@ -19,6 +19,7 @@ local Selected = -1
 local SelectedMenu = 0
 
 local workbenchInputSlots = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
+--#endregion Locals--
 
 --#region Function--
 function ReadRecipe()
@@ -46,7 +47,7 @@ function LoadFile(name)
         return nil
     end
 
-    local file = fs.open(name, 'w')
+    local file = fs.open(name, 'r')
     if file then
         local serialized = file.readAll()
         if serialized == nil then
@@ -127,7 +128,7 @@ function CraftOne()
                 os.queueEvent('turtle_inventory_ignore')
                 Buffer.pullItems(item.side,item.slot,item.count)
                 turtle.select(v)
-                SuckSide()
+                turtle.suckDown()
             end
         end
     end
@@ -193,7 +194,7 @@ function CraftStack()
                 Buffer.pullItems(item.side,item.slot,item.count, v)
                 os.queueEvent('turtle_inventory_ignore')
                 turtle.select(v)
-                SuckSide()
+                turtle.suckDown()
             end
         end
     end
