@@ -306,5 +306,16 @@ Screen.setCursorPos(1, 1)
 Recipes=fs.list(Vs.name..'/Recipes')
 ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
 
-parallel.waitForAll(LoopPrint, LoopEnv)
+local success, result = pcall(function()
+    parallel.waitForAll(LoopPrint, LoopEnv)
+end)
+
+if not success then
+    term.clear()
+    term.setCursorPos(1, 1)
+    print(success)
+    print(result)
+    print(debug.traceback())
+    os.pullEvent("key")
+end
 --#endregion Main--

@@ -346,5 +346,16 @@ Search.write(SearchTitel..string.rep(' ',(SearchLenght)+1)..'|')
 Search.setCursorPos(SearchSize[1]-#SortDisplay[SortFunction[1]],1)
 Search.write(SortDisplay[SortFunction[1]])
 SearchBar.clear()
-parallel.waitForAll(LoopSort,LoopPrint,StoreItems, LoopEnv,LoopTopBar)
+local success, result = pcall(function()
+    parallel.waitForAll(LoopSort,LoopPrint,StoreItems, LoopEnv,LoopTopBar)
+end)
+
+if not success then
+    term.clear()
+    term.setCursorPos(1, 1)
+    print(success)
+    print(result)
+    print(debug.traceback())
+    os.pullEvent("key")
+end
 --#endregion
