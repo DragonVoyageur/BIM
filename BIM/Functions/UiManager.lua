@@ -1,5 +1,5 @@
-Metric = { ' ', 'k', 'M', 'G', 'T' }
-local function thousend(count)
+local metric = { ' ', 'k', 'M', 'G', 'T' }
+local function thousand(count)
     local c = count
     local i = 1
     while (c / 1000) >= 1 do
@@ -7,7 +7,7 @@ local function thousend(count)
         i = i + 1
     end
     if i>5 then i=5 c=999 end
-    return  string.format('%03i%s',c,Metric[i])
+    return  string.format('%03i%s',c,metric[i])
 end
 local function tableExplore(tb)
     if type(tb) == 'table' then
@@ -17,15 +17,15 @@ local function tableExplore(tb)
         end
         return text
     elseif type(tb) == 'number' then
-        return thousend(tb)..' '
+        return thousand(tb)..' '
     elseif type(tb) == 'nil' then
         return ' '
     else
         return tostring(tb)..' '
-    end       
+    end
 end
 
-function ValToIndes(list,selections)
+local function valToIndes(list,selections)
     local index={}
     if type(selections)~='table' then selections={selections} end
     for i, l in pairs(list) do
@@ -37,7 +37,7 @@ function ValToIndes(list,selections)
     end
     return index
 end
-local function ResizeBar(bar,scrollIndex,screen,list,columns)
+local function resizeBar(bar,scrollIndex,screen,list,columns)
     local screenSize={screen.getSize()}
     local barSize={bar.getSize()}
     local bcolor=colors.toBlit(bar.getBackgroundColor())
@@ -45,7 +45,7 @@ local function ResizeBar(bar,scrollIndex,screen,list,columns)
     local lenght=math.max(math.min((barSize[2]/(#list/columns))*barSize[2],barSize[2]),1)
     local max=math.ceil(barSize[2]-lenght)
     local percent=(scrollIndex/((#list/columns)-screenSize[2]))
-    if percent~=percent then percent=0 end 
+    if percent~=percent then percent=0 end
     local cal=percent<0.5 and math.ceil or math.floor
     local offset=cal(math.min(math.max(percent*max,0),max))
     for i=1, barSize[2],1 do
@@ -57,10 +57,9 @@ local function ResizeBar(bar,scrollIndex,screen,list,columns)
         end
     end
 end
-function Print(list,selected,scrollIndex,bar,screen,columns)
-    
+local function uiPrint(list,selected,scrollIndex,bar,screen,columns)
     if bar~=nil then
-        ResizeBar(bar,scrollIndex,screen,list,columns)
+        resizeBar(bar,scrollIndex,screen,list,columns)
     end
     local bcolor=colors.toBlit(screen.getBackgroundColor())
     local tcolor=colors.toBlit(screen.getTextColor())
@@ -69,20 +68,20 @@ function Print(list,selected,scrollIndex,bar,screen,columns)
     local clickList={}
     screen.setCursorPos(1,1)
     local screenPos={screen.getPosition()}
-    local indexs=ValToIndes(list,selected)
+    local indexs=valToIndes(list,selected)
     local selectlist={}
     for i, sle in pairs(indexs) do
         selectlist[sle]=true
     end
     local pos={1,1}
-    table.insert(clickList,screenPos[2]+pos[2]-1,{}) 
+    table.insert(clickList,screenPos[2]+pos[2]-1,{})
     for i=1+scrollIndex*columns, #list,1 do
         pos={screen.getCursorPos()}
-        if pos[1]+width-1>screenSize[1] then 
-            if pos[2]+1>screenSize[2] then break end 
+        if pos[1]+width-1>screenSize[1] then
+            if pos[2]+1>screenSize[2] then break end
             screen.setCursorPos(1,pos[2]+1)
             pos={screen.getCursorPos()}
-            table.insert(clickList,screenPos[2]+pos[2]-1,{}) 
+            table.insert(clickList,screenPos[2]+pos[2]-1,{})
         end
         local text=string.sub(string.format('%-'..tostring(width)..'s',tableExplore(list[i])),1,width-1)..' '
         for j=screenPos[1]+pos[1]-1,screenPos[1]+pos[1]+width-1,1 do
@@ -96,20 +95,20 @@ function Print(list,selected,scrollIndex,bar,screen,columns)
         screen.setCursorPos(1,i)
         screen.clearLine()
     end
-    
+
     return clickList
 end
 
-function Clicked(clickList,x, y)
+local function uiClicked(clickList,x, y)
     local value =nil
-    if clickList[y]~=nil then  
+    if clickList[y]~=nil then
         value= clickList[y][x]
     end
     if value==nil then value=-1 end
     return value
 end
 
-function Create(parent,x,y,x2,y2,bcolor,tcolor,hasbar,bbcolor,btcolor)
+local function uiCreate(parent,x,y,x2,y2,bcolor,tcolor,hasbar,bbcolor,btcolor)
     local win=window.create(parent,x,y,1+x2-x-(hasbar and 1 or 0),1+y2-y)
     win.setBackgroundColor(bcolor)
     win.setTextColor(tcolor)
@@ -123,8 +122,8 @@ function Create(parent,x,y,x2,y2,bcolor,tcolor,hasbar,bbcolor,btcolor)
         bar.setTextColor(btcolor)
         bar.clear()
     end
-    
+
     return win,winSize,bar
 end
 
-return {Print=Print,Click=Clicked,Create=Create}
+return {Print=uiPrint, Click=uiClicked, Create=uiCreate}

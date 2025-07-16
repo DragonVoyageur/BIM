@@ -1,22 +1,22 @@
 
 --#region Locals--
-local Workbench = peripheral.find("workbench")
-local MenuError = false
-local Recipes = {}
-local ClickList = {}
-local MainScreen = term.current()
-local MainSize = { MainScreen.getSize() }
-local Screen = window.create(MainScreen, 1, 1, MainSize[1] - 1, MainSize[2] - 1)
-local ScreenSize = { Screen.getSize() }
-local ScrollBar = window.create(MainScreen, ScreenSize[1] + 1, 1, 1, ScreenSize[2])
-local RecipeMenu = window.create(MainScreen, 1, MainSize[2], MainSize[1], 1)
+local workbench = peripheral.find("workbench")
+local menuError = false
+local recipes = {}
+local clickList = {}
+local mainScreen = term.current()
+local mainSize = { mainScreen.getSize() }
+local screen = window.create(mainScreen, 1, 1, mainSize[1] - 1, mainSize[2] - 1)
+local screenSize = { screen.getSize() }
+local scrollBar = window.create(mainScreen, screenSize[1] + 1, 1, 1, screenSize[2])
+local recipeMenu = window.create(mainScreen, 1, mainSize[2], mainSize[1], 1)
 
-local Buffer
-local ColAmount
-local ScrollIndex = 0
-local ClickMenu = {}
-local Selected = -1
-local SelectedMenu = 0
+local buffer
+local colAmount
+local scrollIndex = 0
+local clickMenu = {}
+local selected = -1
+local selectedMenu = 0
 
 local workbenchInputSlots = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
 --#endregion Locals--
@@ -31,9 +31,9 @@ function ReadRecipe()
     end
     if #recipe[2]<1 then return true end
     StoreFile(Vs.name..'/Recipes/'..recipe[1].displayName,recipe)
-    Selected=0
-    Recipes=fs.list(Vs.name..'/Recipes')
-    ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+    selected=0
+    recipes=fs.list(Vs.name..'/Recipes')
+    clickList=Um.Print(recipes,selected,scrollIndex,scrollBar,screen,colAmount)
     return false
 end
 
@@ -77,20 +77,20 @@ function StoreFile(name,value)
 end
 
 function DeleteRecipe()
-    if not Selected then return true end
-    if not fs.exists(Vs.name..'/Recipes/'..Selected) then return true end
-    fs.delete(Vs.name..'/Recipes/'..Selected)
-    Selected=-1
-    Recipes=fs.list(Vs.name..'/Recipes')
-    ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+    if not selected then return true end
+    if not fs.exists(Vs.name..'/Recipes/'..selected) then return true end
+    fs.delete(Vs.name..'/Recipes/'..selected)
+    selected=-1
+    recipes=fs.list(Vs.name..'/Recipes')
+    clickList=Um.Print(recipes,selected,scrollIndex,scrollBar,screen,colAmount)
     return false
 end
 
 function CraftOne()
-    if not Workbench then return false end
-    if not Selected then return true end
-    if not fs.exists(Vs.name..'/Recipes/'..Selected) then return true end
-    local recipe = LoadFile(Vs.name..'/Recipes/'..Selected)
+    if not workbench then return false end
+    if not selected then return true end
+    if not fs.exists(Vs.name..'/Recipes/'..selected) then return true end
+    local recipe = LoadFile(Vs.name..'/Recipes/'..selected)
     local list = Vs.chests
     if recipe==nil or list==nil then return true end
     --validate and select items
@@ -126,13 +126,13 @@ function CraftOne()
         if temp[v]~=nil then
             for j, item in ipairs(temp[v])do
                 os.queueEvent('turtle_inventory_ignore')
-                Buffer.pullItems(item.side,item.slot,item.count)
+                buffer.pullItems(item.side,item.slot,item.count)
                 turtle.select(v)
                 turtle.suckDown()
             end
         end
     end
-    Workbench.craft()
+    workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
     turtle.drop()
     Vs.chests=list
@@ -140,10 +140,10 @@ function CraftOne()
 end
 
 function CraftStack()
-    if not Workbench then return false end
-    if not Selected then return true end
-    if not fs.exists(Vs.name..'/Recipes/'..Selected) then return true end
-    local recipe = LoadFile(Vs.name..'/Recipes/'..Selected)
+    if not workbench then return false end
+    if not selected then return true end
+    if not fs.exists(Vs.name..'/Recipes/'..selected) then return true end
+    local recipe = LoadFile(Vs.name..'/Recipes/'..selected)
     local list = Vs.chests
     if recipe==nil or list==nil then return true end
     --validate and select items
@@ -191,14 +191,14 @@ function CraftStack()
     for i, v in ipairs(workbenchInputSlots) do
         if temp[v] ~= nil then
             for j, item in ipairs(temp[v])do
-                Buffer.pullItems(item.side,item.slot,item.count, v)
+                buffer.pullItems(item.side,item.slot,item.count, v)
                 os.queueEvent('turtle_inventory_ignore')
                 turtle.select(v)
                 turtle.suckDown()
             end
         end
     end
-    Workbench.craft()
+    workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
     turtle.drop()
     Vs.chests=list
@@ -206,64 +206,64 @@ function CraftStack()
 end
 
 local function menu()
-    if not Workbench then
-        RecipeMenu.setCursorPos(1, 1)
-        RecipeMenu.write("Requires Crafty Turtle")
+    if not workbench then
+        recipeMenu.setCursorPos(1, 1)
+        recipeMenu.write("Requires Crafty Turtle")
         return
     end
     local buttons={'Craft one','Craft stack','Save','Delete'}
-    local size={RecipeMenu.getSize()}
+    local size={recipeMenu.getSize()}
     local padding=size[1]
     for i,text in ipairs(buttons) do
         padding=padding-#text
     end
     padding=math.floor((padding/#buttons)/2)
-    RecipeMenu.setCursorPos(1,1)
+    recipeMenu.setCursorPos(1,1)
     for i,text in ipairs(buttons) do
-        local pos={RecipeMenu.getCursorPos()}
+        local pos={recipeMenu.getCursorPos()}
         local t=string.rep(' ',padding)..text..string.rep(' ',padding)
-        RecipeMenu.blit(t,string.rep('f',#t),string.rep(SelectedMenu==i and (MenuError and 'e' or '7') or '8',#t))
+        recipeMenu.blit(t,string.rep('f',#t),string.rep(selectedMenu==i and (menuError and 'e' or '7') or '8',#t))
         for j=pos[1],pos[1]+#t,1 do
-            ClickMenu[j]=i
+            clickMenu[j]=i
         end
     end
 end
 
 function ClickedMenu(x)
-    SelectedMenu = ClickMenu[x]
-    if SelectedMenu == 1 then
+    selectedMenu = clickMenu[x]
+    if selectedMenu == 1 then
         menu()
-        MenuError = CraftOne()
-    elseif SelectedMenu == 2 then
+        menuError = CraftOne()
+    elseif selectedMenu == 2 then
         menu()
-        MenuError = CraftStack()
-    elseif SelectedMenu == 3 then
+        menuError = CraftStack()
+    elseif selectedMenu == 3 then
         menu()
-        MenuError = ReadRecipe()
-    elseif SelectedMenu == 4 then
+        menuError = ReadRecipe()
+    elseif selectedMenu == 4 then
         menu()
-        MenuError = DeleteRecipe()
+        menuError = DeleteRecipe()
     end
     menu()
     sleep(0.5)
-    SelectedMenu = 0
-    MenuError = false
+    selectedMenu = 0
+    menuError = false
     menu()
 end
 
 function LoopPrint()
     while true do
         local event = { os.pullEvent() }
-        if event[1] == 'mouse_scroll' and ScrollIndex ~=math.min(math.max(ScrollIndex + event[2],0),math.max(math.ceil(#Recipes/ColAmount)-ScreenSize[2],0)) then
-            ScrollIndex = ScrollIndex + event[2]
-            ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+        if event[1] == 'mouse_scroll' and scrollIndex ~=math.min(math.max(scrollIndex + event[2],0),math.max(math.ceil(#recipes/colAmount)-screenSize[2],0)) then
+            scrollIndex = scrollIndex + event[2]
+            clickList=Um.Print(recipes,selected,scrollIndex,scrollBar,screen,colAmount)
         elseif event[1] == 'mouse_click' then
-            if event[4]>ScreenSize[2] then
+            if event[4]>screenSize[2] then
 
                 ClickedMenu(event[3])
             else
-                Selected=Recipes[Um.Click(ClickList,event[3], event[4])]
-                Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+                selected=recipes[Um.Click(clickList,event[3], event[4])]
+                Um.Print(recipes,selected,scrollIndex,scrollBar,screen,colAmount)
             end
         elseif event[1]=='click_ignore' then
             os.pullEvent('click_start')
@@ -275,15 +275,15 @@ function LoopEnv()
     while true do
         os.pullEvent('Update_Env')
         LoadEnv()
-        Selected=-1
-        ScrollIndex=0
-        Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+        selected=-1
+        scrollIndex=0
+        Um.Print(recipes,selected,scrollIndex,scrollBar,screen,colAmount)
     end
 end
 
 function LoadEnv()
-    Buffer=peripheral.wrap(Vs.getEnv('Buffer'))
-    ColAmount =  tonumber(Vs.getEnv('Columns'))
+    buffer=peripheral.wrap(Vs.getEnv('Buffer'))
+    colAmount =  tonumber(Vs.getEnv('Columns'))
 end
 --#endregion Function--
 
@@ -293,19 +293,19 @@ repeat
 until Vs.getEnv()~=nil
 LoadEnv()
 
-ScrollBar.setBackgroundColor(colors.gray)
-RecipeMenu.setBackgroundColor(colors.lightGray)
-Screen.clear()
-ScrollBar.clear()
-RecipeMenu.clear()
+scrollBar.setBackgroundColor(colors.gray)
+recipeMenu.setBackgroundColor(colors.lightGray)
+screen.clear()
+scrollBar.clear()
+recipeMenu.clear()
 if not fs.exists(Vs.name..'/Recipes/') then
     fs.makeDir(Vs.name..'/Recipes')
 end
 
 menu()
-Screen.setCursorPos(1, 1)
-Recipes=fs.list(Vs.name..'/Recipes')
-ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
+screen.setCursorPos(1, 1)
+recipes=fs.list(Vs.name..'/Recipes')
+clickList=Um.Print(recipes,selected,scrollIndex,scrollBar,screen,colAmount)
 
 local success, result = pcall(function()
     parallel.waitForAll(LoopPrint, LoopEnv)

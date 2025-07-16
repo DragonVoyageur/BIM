@@ -57,11 +57,11 @@ end
 
 function LisVal(id)
     local switch={
-    ['Inventories']=function() 
+    ['Inventories']=function()
             ValueList=PeripheralTypes()
             ValueSlected= Vs.getEnv('Inventories')
         end,
-    ['IgnoreInv']=function() 
+    ['IgnoreInv']=function()
             ValueList= FindType(Vs.getEnv('Inventories'))
             local dontShow={['left']=true,['right']=true,['top']=true,['bottom']=true,['front']=true,['back']=true}
             for i,p in pairs(ValueList) do
@@ -70,9 +70,9 @@ function LisVal(id)
                 end
             end
             ValueSlected= Vs.getEnv('IgnoreInv')
-           
+
         end,
-    ['Buffer']=function() 
+    ['Buffer']=function()
             ValueList= FindType('inventory')
             local dontShow={['left']=true,['right']=true,['top']=true,['bottom']=true,['front']=true,['back']=true}
             for i,p in pairs(ValueList) do
@@ -82,8 +82,8 @@ function LisVal(id)
             end
             ValueSlected= Vs.getEnv('Buffer')
         end,
-    ['Columns']=function() 
-            ValueList={'1','2','3','4'} 
+    ['Columns']=function()
+            ValueList={'1','2','3','4'}
             ValueSlected= Vs.getEnv('Columns')
         end,
     ['Monitor']=function()
@@ -91,7 +91,7 @@ function LisVal(id)
             table.insert(ValueList,1,'none')
             ValueSlected= Vs.getEnv('Monitor')
         end}
-       
+
     Descriptions.clear()
     local desc=id and require 'cc.strings'.wrap(settings.getDetails(Vs.name..'.'..id).description,DescSize[1]-2) or ''
     for i = 1, #desc do
@@ -147,7 +147,7 @@ function ValClicked(id)
             settings.save(SettingPath)
             os.queueEvent('Update_Env')
         end
-    end   
+    end
 end
 
 function LoopPrint()
@@ -192,28 +192,28 @@ if not settings.load(SettingPath) then
 end
 LoadEnv()
 
-MainScreen = (Env.Monitor == 'none' or Env.Monitor == nil) and term.current() or peripheral.wrap(Env.Monitor)
-if MainScreen==nil then MainScreen=term.current() end
-MainScreen.setBackgroundColor(colors.lightGray)
-ScreenSize = { MainScreen.getSize() }
+local mainScreen = (Env.Monitor == 'none' or Env.Monitor == nil) and term.current() or peripheral.wrap(Env.Monitor)
+if mainScreen==nil then mainScreen=term.current() end
+mainScreen.setBackgroundColor(colors.lightGray)
+local ScreenSize = { mainScreen.getSize() }
 
-Width=#SetNames[1]+1
+local width=#SetNames[1]+1
 local height=#SetNames
 local yOffset=math.floor((ScreenSize[2]-height)/2)
-EnvMenu=window.create(MainScreen,3,yOffset,Width,height)
-BackMenu=window.create(MainScreen,2,yOffset-1,2+Width,height+2)
-Descriptions=window.create(MainScreen,2,yOffset+height+2,ScreenSize[1]-2,2)
+EnvMenu=window.create(mainScreen,3,yOffset,width,height)
+BackMenu=window.create(mainScreen,2,yOffset-1,2+width,height+2)
+Descriptions=window.create(mainScreen,2,yOffset+height+2,ScreenSize[1]-2,2)
 MenuSize={ EnvMenu.getSize() }
 MenuPos={ EnvMenu.getPosition() }
 DescSize={Descriptions.getSize()}
 
-EnvValues=window.create(MainScreen,MenuPos[1]+MenuSize[1]+3,yOffset,ScreenSize[1]-(4+MenuPos[1]+MenuSize[1]),height)
-BackVal=window.create(MainScreen,MenuPos[1]+MenuSize[1]+2,yOffset-1,ScreenSize[1]-(2+MenuPos[1]+MenuSize[1]),height+2)
+EnvValues=window.create(mainScreen,MenuPos[1]+MenuSize[1]+3,yOffset,ScreenSize[1]-(4+MenuPos[1]+MenuSize[1]),height)
+BackVal=window.create(mainScreen,MenuPos[1]+MenuSize[1]+2,yOffset-1,ScreenSize[1]-(2+MenuPos[1]+MenuSize[1]),height+2)
 ValuesSize={ EnvValues.getSize() }
 BarValues=window.create(BackVal,ValuesSize[1]+2,1,1,ValuesSize[2]+2)
 BarValues.setBackgroundColor(colors.gray)
 
-MainScreen.clear()
+mainScreen.clear()
 BackMenu.clear()
 BackVal.clear()
 EnvMenu.clear()

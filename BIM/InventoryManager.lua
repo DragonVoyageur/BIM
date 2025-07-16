@@ -1,19 +1,98 @@
+--#region Locals--
+local listSort = {
+    function(left, right) return left[2] < right[2] end,
+    function(left, right) return left[2] > right[2] end,
+    function(left, right) return left[1] < right[1] end,
+    function(left, right) return left[1] > right[1] end,
+}
+local sortDisplay = {
+    "Name ^",
+    "Name v",
+    "Amount ^",
+    "Amount v"
+}
+
+local sortFunction = { 1, listSort[1] }
+
+local list = {}
+local filtered = {} -- {... 4 values}
+local clickList = {}
+local sClickList = {}
+local scrollIndex = 0
+local selected = 0
+local buffer = nil
+local chests = {}
+local monitor = nil
+
+local mainScreen = term.current()
+local mainSize = { mainScreen.getSize() }
+local secondScreen = window.create(mainScreen, 1, 1, 1, 1)
+secondScreen.setVisible(false)
+local screen, screenSize, scrollBar = Um.Create(mainScreen, 1, 2, mainSize[1], mainSize[2], colors.black, colors.white, true,
+    colors.gray, colors.white)
+local search, searchSize = Um.Create(mainScreen, 1, 1, mainSize[1], 1, colors.lightGray, colors.black)
+local searchTitle = 'Search:'
+local searching = false
+local searchLength = (searchSize[1] / 2) - #searchTitle
+local searchBar, sBSize = Um.Create(search, #searchTitle + 1, 1, #searchTitle + 1 + searchLength, 1, colors.lightGray,
+    colors.black)
+local searchText = ""
+local colAmount
+--#endregion Locals--
+
+local function Error(where, ...) -- debug tool
+    local errMonitor = peripheral.wrap("right")
+    assert(errMonitor, "Couldn't find monitor")
+    errMonitor.clear()
+    errMonitor.setCursorPos(1, 1)
+    errMonitor.write("Error at: " .. where)
+
+    local args = {...}
+    for i = 1, #args do
+        errMonitor.setCursorPos(1, i + 2)
+        errMonitor.write(args[i])
+    end
+    error("encountered an error.")
+end
+do
+    local errMonitor = peripheral.wrap("right")
+    if errMonitor then
+        errMonitor.clear()
+        errMonitor.setCursorPos(1, 1)
+    end
+end
+
+local function SortList()
+    table.sort(list, sortFunction[2])
+    Filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
+    table.sort(filtered, sortFunction[2])
+end
+
 --#region Functions--
+---Maps out where items are
 function CountChests()
     local chestlist={}
-    for i,chest in ipairs(Chests) do
+    for i,chest in ipairs(chests) do
         local items=chest.list()
         for j,item in pairs(items) do
             local name=item.name
             if chestlist[name]==nil then chestlist[name]={} end
-            table.insert(chestlist[name],{['side']=peripheral.getName(chest),['slot']=j,['count']=item.count,['name']=name})
+            table.insert(
+                chestlist[name],
+                {
+                    side=peripheral.getName(chest),
+                    slot=j,
+                    count=item.count,
+                    name=name
+                }
+            )
         end
     end
     Vs.chests= chestlist
 end
 
 function SortItems()
-    local list={}
+    local newList={}
     local itemlist={}
     for item,data in pairs(Vs.chests) do
         local count=0
@@ -21,8 +100,17 @@ function SortItems()
         for i,slot1 in ipairs(data)do
             if slot1.count~=0 then
                 local chest=peripheral.wrap(slot1.side)
-                local limit=chest.getItemLimit(slot1.slot)
-                if not disName then disName=chest.getItemDetail(slot1.slot).displayName end
+                assert(chest, "No chest found.")
+                -- local limit=chest.getItemLimit(slot1.slot)
+                -- if not disName then disName=chest.getItemDetail(slot1.slot).displayName end
+                if not disName then
+                    local detail = chest.getItemDetail(slot1.slot)
+                    if detail and detail.displayName then
+                        disName = detail.displayName
+                    else
+                        disName = "Unknown"
+                    end
+                end
                 for j=i+1,#data,1 do
                     local transferd=chest.pullItems(data[j].side,data[j].slot,data[j].count,slot1.slot)
                     Vs.chests[item][j].count=data[j].count-transferd
@@ -32,22 +120,16 @@ function SortItems()
             end
         end
         table.insert(itemlist,{count,disName})
-        table.insert(list,{count,disName,item})
+        table.insert(newList,{count,disName,item})
     end
     Vs.list=itemlist
-    List=list
+    list=newList
     SortList()
-end
-
-function SortList()
-    table.sort(List, SortFunction[2])
-    Filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
-    table.sort(Filtered, SortFunction[2])
 end
 
 function StoreItems()
     while true do
-        if Buffer then
+        if buffer then
             local  event={os.pullEvent()}
             if event[1]=='turtle_inventory' and multishell.getCurrent()==multishell.getFocus() then
                 os.queueEvent('click_ignore')
@@ -55,16 +137,18 @@ function StoreItems()
                 repeat
                     os.cancelTimer(id)
                     id =os.startTimer(1)
-                    local  timer={os.pullEvent()}
+                    local timer={os.pullEvent()}
                 until timer[2]==id
-                for i=1,16,1 do
-                    turtle.select(i)
-                    DropSide()
+                for i=1,16 do
+                    if turtle.getItemCount(i) > 0 then
+                        turtle.select(i)
+                        turtle.dropDown()
+                    end
                 end
-                for i,item in pairs(Buffer.list())do
-                    for j,chest in pairs(Chests)do
+                for i,item in pairs(buffer.list()) do
+                    for _,chest in pairs(chests)do
                         if item.count==0 then break end
-                        Buffer.pushItems(peripheral.getName(chest),i)
+                        buffer.pushItems(peripheral.getName(chest),i)
                     end
                 end
                 os.queueEvent('click_start')
@@ -79,74 +163,84 @@ end
 
 function LoopSort()
     while true do
-        if Buffer then
+        if buffer then
             CountChests()
             SortItems()
-            ScrollIndex=math.min(math.max(ScrollIndex,0),math.max(math.ceil(#Filtered/ColAmount)-ScreenSize[2],0))
+            scrollIndex=math.min(math.max(scrollIndex,0),math.max(math.ceil(#filtered/colAmount)-screenSize[2],0))
             PrintScreen()
-            if Monitor then SClickList=Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
+            if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
             sleep(10)
         else
-            Screen.clear()
-            Screen.setCursorPos(1,1)
-            Screen.write("No Buffer selected")
+            screen.clear()
+            screen.setCursorPos(1,1)
+            screen.write("No Buffer selected")
             os.pullEvent('Updated_Env')
-            Screen.clear()
-            Screen.setCursorPos(1,1)
-            Screen.write('Sorting...')
+            screen.clear()
+            screen.setCursorPos(1,1)
+            screen.write('Sorting...')
         end
     end
 end
 
+---Grab an item from storage and drop it to the player
+---@param id integer the index that the player clicks
 function DropItem(id)
-    if id==nil or List[id]==nil then return nil end
+
+    -- filtered[id] == {int:count, string:displayName}; int keys
+
+    if id==nil or list[id]==nil then return nil end
     local stack = 0
-    Selected={Filtered[id]}
-    for i, data in ipairs(Vs.chests[List[id][3]]) do
+    selected={filtered[id]}
+    if not list[id] then
+        Error("Drop Item", Vs.chests[list[id][3]], "DONE")
+    end
+    -- List[id].id = Item name i.e. minecraft:andesite
+    -- for i, data in ipairs(Vs.chests[List[id].id]) do -- attempt to index nil value
+    for i, data in ipairs(Vs.chests[list[id][3]]) do
         if data.count>0 then
-            local transferd= Buffer.pullItems(data.side, data.slot, 64 - stack)
+            local transferd= buffer.pullItems(data.side, data.slot, 64 - stack)
             stack = stack + transferd
             Vs.list[id][1] = Vs.list[id][1] - transferd
-            Filtered[id][1] = Filtered[id][1] - transferd
+            filtered[id][1] = filtered[id][1] - transferd
             Vs.chests[data.name][i].count=Vs.chests[data.name][i].count-transferd
             if stack >= 64 then
                 break
             end
         end
     end
-    Um.Print(Filtered,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
-    if Monitor then Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
+    Um.Print(filtered,selected,scrollIndex,scrollBar,screen,colAmount)
+    if monitor then Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
     turtle.drop()
     repeat
         os.queueEvent('turtle_inventory_ignore')
         turtle.select(16)
-        SuckSide()
+        turtle.suckDown()
         turtle.drop()
-    until table.maxn(Buffer.list())==0
+    until table.maxn(buffer.list())==0
     os.queueEvent('turtle_inventory_start')
 end
 
 function PrintScreen()
-    SearchBar.setCursorBlink(false)
-    ClickList=Um.Print(Filtered,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
-    if Searching then
-        SearchBar.setCursorBlink(true)
-        SearchBar.setCursorPos(math.min(#Stext,SearchLenght)+1,1)
+    searchBar.setCursorBlink(false)
+    clickList=Um.Print(filtered,selected,scrollIndex,scrollBar,screen,colAmount)
+    if searching then
+        searchBar.setCursorBlink(true)
+        searchBar.setCursorPos(math.min(#searchText,searchLength)+1,1)
     end
 end
 
 function LoopPrint()
     while true do
-        if Buffer then
+        if buffer then
             local event = { os.pullEvent() }
-            if event[1] == 'mouse_scroll'  and ScrollIndex ~=math.min(math.max(ScrollIndex + event[2],0),math.max(math.ceil(#Filtered/ColAmount)-ScreenSize[2],0)) then
-                ScrollIndex = ScrollIndex + event[2]
+            if event[1] == 'mouse_scroll'  and scrollIndex ~=math.min(math.max(scrollIndex + event[2],0),math.max(math.ceil(#filtered/colAmount)-screenSize[2],0)) then
+                scrollIndex = scrollIndex + event[2]
                 PrintScreen()
-                if Monitor then SClickList=Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
+                if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
             elseif event[1] == 'mouse_click' and event[4]>=2 then
-                DropItem(Um.Click(ClickList,event[3], event[4]))
-            elseif event[1] =='monitor_touch' and Monitor then
-                DropItem(Um.Click(SClickList,event[3], event[4]))
+                DropItem(Um.Click(clickList,event[3], event[4]))
+            elseif event[1] =='monitor_touch' and monitor then
+                DropItem(Um.Click(sClickList,event[3], event[4]))
             elseif event[1]=='click_ignore' then
                 os.pullEvent('click_start')
             end
@@ -160,55 +254,50 @@ function LoopEnv()
     while true do
         os.pullEvent('Update_Env')
         LoadEnv()
-        Selected=0
-        ScrollIndex=0
+        selected=0
+        scrollIndex=0
         PrintScreen()
-        if Monitor then SClickList=Um.Print(Filtered,Selected,0,nil,SecondScreen,ColAmount) end
+        if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
         os.queueEvent('Updated_Env')
     end
 end
 
 function LoadEnv()
-    Buffer=peripheral.wrap(Vs.getEnv('Buffer'))
+    buffer=peripheral.wrap(Vs.getEnv('Buffer'))
 
     local ignore={}
-    for i,ig in pairs(Vs.getEnv('IgnoreInv'))do
+    for _,ig in pairs(Vs.getEnv('IgnoreInv'))do
         ignore[ig]=true
     end
-    Chests={peripheral.find(Vs.getEnv('Inventories'), function(name,type)
+    chests={peripheral.find(Vs.getEnv('Inventories'), function(name,type)
         return not (ignore[name]) or false
     end)}
 
-    local chestname={}
-    for i,c in pairs(Chests) do
-        table.insert(chestname,peripheral.getName(c))
-    end
+    colAmount = tonumber(Vs.getEnv('Columns'))
 
-    ColAmount =  tonumber(Vs.getEnv('Columns'))
-
-    Monitor=peripheral.wrap(Vs.getEnv('Monitor'))
-    if Monitor then
-        local monitorSize={Monitor.getSize()}
-        SecondScreen.reposition(1,1,monitorSize[1],monitorSize[2],Monitor)
-        SecondScreen.setVisible(true)
+    monitor=peripheral.wrap(Vs.getEnv('Monitor'))
+    if monitor then
+        local monitorSize={monitor.getSize()}
+        secondScreen.reposition(1,1,monitorSize[1],monitorSize[2],monitor)
+        secondScreen.setVisible(true)
     else
-        SecondScreen.setVisible(false)
+        secondScreen.setVisible(false)
     end
 end
 
 function LoopTopBar()
     while true do
         local event = { os.pullEvent() }
-        if  event[1] == 'mouse_click' and event[4]==1 and event[3]>(#SearchTitel) and event[3]<(SBSize[1]+#SearchTitel) then
+        if  event[1] == 'mouse_click' and event[4]==1 and event[3]>(#searchTitle) and event[3]<(sBSize[1]+#searchTitle) then
             BeginSearch()
-        elseif event[1] == 'mouse_click' and event[3]>(SearchSize[1]-#SortDisplay[SortFunction[1]]) then
-            if SortFunction[1]+1<=4 then
-                SortFunction={SortFunction[1]+1,ListSort[SortFunction[1]+1]}
+        elseif event[1] == 'mouse_click' and event[3]>(searchSize[1]-#sortDisplay[sortFunction[1]]) then
+            if sortFunction[1]+1<=4 then
+                sortFunction={sortFunction[1]+1,listSort[sortFunction[1]+1]}
             else
-                SortFunction={1,ListSort[1]}
+                sortFunction={1,listSort[1]}
             end
-            Search.setCursorPos(SearchSize[1]-#SortDisplay[SortFunction[1]]-3,1)
-            Search.write("   "..SortDisplay[SortFunction[1]])
+            search.setCursorPos(searchSize[1]-#sortDisplay[sortFunction[1]]-3,1)
+            search.write("   "..sortDisplay[sortFunction[1]])
             SortList()
             PrintScreen()
         end
@@ -216,32 +305,32 @@ function LoopTopBar()
 end
 
 function BeginSearch()
-    SearchBar.setCursorPos(math.min(#Stext+1,SearchLenght-1),1)
-    SearchBar.setCursorBlink(true)
-    Searching=true
+    searchBar.setCursorPos(math.min(#searchText+1,searchLength-1),1)
+    searchBar.setCursorBlink(true)
+    searching=true
     while true do
         local event = { os.pullEvent() }
-        if  event[1] == 'mouse_click' and not (event[4]==1 and event[3]>(#SearchTitel) and event[3]<(SBSize[1]+#SearchTitel)) then
+        if  event[1] == 'mouse_click' and not (event[4]==1 and event[3]>(#searchTitle) and event[3]<(sBSize[1]+#searchTitle)) then
             break
         elseif  event[1] == 'char' then
-            if SearchLenght<=#Stext+3 then
-                SearchBar.setCursorPos(1,1)
-                SearchBar.write(Stext:sub(#Stext-SearchLenght+3, -1))
+            if searchLength<=#searchText+3 then
+                searchBar.setCursorPos(1,1)
+                searchBar.write(searchText:sub(#searchText-searchLength+3, -1))
             end
-            SearchBar.write(event[2])
-            Stext=Stext..event[2]
-        elseif event[1] == 'key'  and #Stext>0 then
+            searchBar.write(event[2])
+            searchText=searchText..event[2]
+        elseif event[1] == 'key'  and #searchText>0 then
             local k= keys.getName(event[2])
             if k == 'backspace' then
-                if SearchLenght<=#Stext then
-                    SearchBar.setCursorPos(1,1)
-                    SearchBar.write(Stext:sub(#Stext+1-SearchLenght, -2))
-                    SearchBar.write(' ')
+                if searchLength<=#searchText then
+                    searchBar.setCursorPos(1,1)
+                    searchBar.write(searchText:sub(#searchText+1-searchLength, -2))
+                    searchBar.write(' ')
                 else
-                    SearchBar.setCursorPos(#Stext,1)
-                    SearchBar.write(' ')
+                    searchBar.setCursorPos(#searchText,1)
+                    searchBar.write(' ')
                 end
-                Stext=Stext:sub(1, -2)
+                searchText=searchText:sub(1, -2)
             end
         end
         if  event[1] == 'char' or event[1] == 'key' then
@@ -249,8 +338,8 @@ function BeginSearch()
         PrintScreen()
         end
     end
-    SearchBar.setCursorBlink(false)
-    Searching=false
+    searchBar.setCursorBlink(false)
+    searching=false
 end
 
 function MetaCall(table)
@@ -269,10 +358,10 @@ function MetaCall(table)
 end
 
 function Filter(list)
-    if #Stext<1 then Filtered=list return end
+    if #searchText<1 then filtered=list return end -- if no search query
 
     setmetatable(list,{__call=MetaCall})
-    local searchtext=Stext:lower():gsub("%s+", "")
+    local searchtext=searchText:lower():gsub("%s+", "")
     local inverted=list()
     local filtering={}
     local results=textutils.complete(searchtext,inverted)
@@ -284,53 +373,13 @@ function Filter(list)
         end
     end
 
-    Filtered=filtering
+    filtered=filtering
 
 end
 
 --#endregion Functions--
 
 --#region Main--
-
---#region Globals--
-List={}
-Filtered={}
-ClickList = {}
-SClickList={}
-ScrollIndex = 0
-Selected=0
-Buffer=nil
-Chests={}
-Monitor=nil
-
-ListSort={
-    function(left,right)return left[2]<right[2]end,
-    function(left,right)return left[2]>right[2]end,
-    function(left,right)return left[1]<right[1]end,
-    function(left,right)return left[1]>right[1]end,
-}
-SortFunction={1,ListSort[1]}
-SortDisplay={
-    "Name ^",
-    "Name v",
-    "Amount ^",
-    "Amount v",
-}
-MainScreen=term.current()
-MainSize={ MainScreen.getSize() }
-SecondScreen=window.create(MainScreen,1,1,1,1)
-SecondScreen.setVisible(false)
-Screen,ScreenSize,ScrollBar=Um.Create(MainScreen,1,2,MainSize[1],MainSize[2],colors.black,colors.white,true,colors.gray,colors.white)
-Search,SearchSize=Um.Create(MainScreen,1,1,MainSize[1],1,colors.lightGray,colors.black)
-SearchTitel='Search:'
-Searching=false
-SearchLenght=(SearchSize[1]/2)-#SearchTitel
-SearchBar,SBSize=Um.Create(Search,#SearchTitel+1,1,#SearchTitel+1+SearchLenght,1,colors.lightGray,colors.black)
-Stext=""
-ColAmount=2
-DropSide=turtle.dropDown
-SuckSide=turtle.suckDown
---#endregion Globals--
 
 
 repeat
@@ -339,13 +388,13 @@ until Vs.getEnv()~=nil
 LoadEnv()
 
 
-Screen.setCursorPos(1,1)
-Screen.write('Sorting...')
-Search.setCursorPos(1,1)
-Search.write(SearchTitel..string.rep(' ',(SearchLenght)+1)..'|')
-Search.setCursorPos(SearchSize[1]-#SortDisplay[SortFunction[1]],1)
-Search.write(SortDisplay[SortFunction[1]])
-SearchBar.clear()
+screen.setCursorPos(1,1)
+screen.write('Sorting...')
+search.setCursorPos(1,1)
+search.write(searchTitle..string.rep(' ',(searchLength)+1)..'|')
+search.setCursorPos(searchSize[1]-#sortDisplay[sortFunction[1]],1)
+search.write(sortDisplay[sortFunction[1]])
+searchBar.clear()
 local success, result = pcall(function()
     parallel.waitForAll(LoopSort,LoopPrint,StoreItems, LoopEnv,LoopTopBar)
 end)
