@@ -204,29 +204,7 @@ function CraftStack()
     return false
 end
 
-function ClickedMenu(x)
-    SelectedMenu = ClickMenu[x]
-    if SelectedMenu==1 then
-        Menu()
-        MenuError=CraftOne()
-    elseif SelectedMenu==2 then
-        Menu()
-        MenuError=CraftStack()
-    elseif SelectedMenu==3 then
-        Menu()
-        MenuError=ReadRecipe()
-    elseif SelectedMenu==4 then
-        Menu()
-        MenuError=DeleteRecipe()
-    end
-    Menu()
-    sleep(0.5)
-    SelectedMenu=0
-    MenuError=false
-    Menu()
-end
-
-function Menu()
+local function menu()
     if not Workbench then
         RecipeMenu.setCursorPos(1, 1)
         RecipeMenu.write("Requires Crafty Turtle")
@@ -248,6 +226,28 @@ function Menu()
             ClickMenu[j]=i
         end
     end
+end
+
+function ClickedMenu(x)
+    SelectedMenu = ClickMenu[x]
+    if SelectedMenu == 1 then
+        menu()
+        MenuError = CraftOne()
+    elseif SelectedMenu == 2 then
+        menu()
+        MenuError = CraftStack()
+    elseif SelectedMenu == 3 then
+        menu()
+        MenuError = ReadRecipe()
+    elseif SelectedMenu == 4 then
+        menu()
+        MenuError = DeleteRecipe()
+    end
+    menu()
+    sleep(0.5)
+    SelectedMenu = 0
+    MenuError = false
+    menu()
 end
 
 function LoopPrint()
@@ -301,7 +301,7 @@ if not fs.exists(Vs.name..'/Recipes/') then
     fs.makeDir(Vs.name..'/Recipes')
 end
 
-Menu()
+menu()
 Screen.setCursorPos(1, 1)
 Recipes=fs.list(Vs.name..'/Recipes')
 ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
