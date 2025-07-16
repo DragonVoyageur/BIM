@@ -1,24 +1,31 @@
-ProjectName='BIM'
-Chests={}
-Env=nil
-Itemlist={}
+local projectName='BIM'
+local chests={}
+local env={}
+local itemlist={}
 
-function SetKeyEnv(value,key)
+local function setKeyEnv(value,key)
     if key~=nil then
-        Env[key]=value
+        env[key]=value
     end
 end
 
-function SetEnv(value)
-    Env=value
+local function setEnv(value)
+    env=value
 end
 
-function GetEnv(key)
+local function getEnv(key)
     if key==nil then
-        return Env
+        return env
     else
-        return Env[key]
+        return env[key]
     end
 end
 
-return {chests=Chests,list=Itemlist,name=ProjectName,setEnv=SetEnv,getEnv=GetEnv,setKeyEnv=SetKeyEnv}
+return {
+    chests = chests, -- key of an itemname, value example {['side']=peripheral.getName(chest),['slot']=j,['count']=item.count,['name']=name}
+    list = itemlist, -- list of items in system { {count:int, name:string} }
+    name = projectName,
+    setEnv = setEnv,
+    getEnv = getEnv,
+    setKeyEnv = setKeyEnv
+}
