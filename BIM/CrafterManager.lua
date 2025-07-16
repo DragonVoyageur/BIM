@@ -1,12 +1,32 @@
+
+--#region Locals--
+local Workbench = peripheral.find("workbench")
+local MenuError = false
+local Recipes = {}
+local ClickList = {}
+local MainScreen = term.current()
+local MainSize = { MainScreen.getSize() }
+local Screen = window.create(MainScreen, 1, 1, MainSize[1] - 1, MainSize[2] - 1)
+local ScreenSize = { Screen.getSize() }
+local ScrollBar = window.create(MainScreen, ScreenSize[1] + 1, 1, 1, ScreenSize[2])
+local RecipeMenu = window.create(MainScreen, 1, MainSize[2], MainSize[1], 1)
+
+local Buffer
+local ColAmount
+local ScrollIndex = 0
+local ClickMenu = {}
+local Selected = -1
+local SelectedMenu = 0
+
+local workbenchInputSlots = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
+
 --#region Function--
 function ReadRecipe()
-    local recipe={nil,{}}
+    local recipe={nil, {}}
     if turtle.getItemDetail(16)==nil then return true end
-    recipe[1]=turtle.getItemDetail(16,true)
-    for i=1,11,1 do
-        if i%4~=0 then
-            recipe[2][i]=turtle.getItemDetail(i,true)
-        end
+    recipe[1] = turtle.getItemDetail(16, true)
+    for i, v in ipairs(workbenchInputSlots) do
+        recipe[2][v] = turtle.getItemDetail(v, true)
     end
     if #recipe[2]<1 then return true end
     StoreFile(Vs.name..'/Recipes/'..recipe[1].displayName,recipe)
@@ -53,21 +73,20 @@ function StoreFile(name,value)
     else
         error("Failed to open " .. name .. " for writing") -- in case of read only / disk full etc.
     end
-
-
 end
 
 function DeleteRecipe()
     if not Selected then return true end
     if not fs.exists(Vs.name..'/Recipes/'..Selected) then return true end
     fs.delete(Vs.name..'/Recipes/'..Selected)
-    Selected=nil
+    Selected=-1
     Recipes=fs.list(Vs.name..'/Recipes')
     ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
     return false
 end
 
 function CraftOne()
+    if not Workbench then return false end
     if not Selected then return true end
     if not fs.exists(Vs.name..'/Recipes/'..Selected) then return true end
     local recipe = LoadFile(Vs.name..'/Recipes/'..Selected)
@@ -101,25 +120,26 @@ function CraftOne()
             return true
         end
     end
-    if table.maxn(temp)==0 then return true end
-    for i=1,11,1 do
-        if i%4~=0 and temp[i]~=nil then
-            for j, item in ipairs(temp[i])do
+    if table.maxn(temp) == 0 then return true end
+    for i, v in ipairs(workbenchInputSlots) do
+        if temp[v]~=nil then
+            for j, item in ipairs(temp[v])do
                 os.queueEvent('turtle_inventory_ignore')
                 Buffer.pullItems(item.side,item.slot,item.count)
-                turtle.select(i)
+                turtle.select(v)
                 SuckSide()
             end
         end
     end
     Workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
-    DropSide()
+    turtle.drop()
     Vs.chests=list
     return false
 end
 
 function CraftStack()
+    if not Workbench then return false end
     if not Selected then return true end
     if not fs.exists(Vs.name..'/Recipes/'..Selected) then return true end
     local recipe = LoadFile(Vs.name..'/Recipes/'..Selected)
@@ -167,19 +187,19 @@ function CraftStack()
         end
     until counter<=0
     if table.maxn(temp)==0 then return true end
-    for i=1,11,1 do
-        if i%4~=0 and temp[i]~=nil then
-            for j, item in ipairs(temp[i])do
-                Buffer.pullItems(item.side,item.slot,item.count,i)
+    for i, v in ipairs(workbenchInputSlots) do
+        if temp[v] ~= nil then
+            for j, item in ipairs(temp[v])do
+                Buffer.pullItems(item.side,item.slot,item.count, v)
                 os.queueEvent('turtle_inventory_ignore')
-                turtle.select(i)
+                turtle.select(v)
                 SuckSide()
             end
         end
     end
     Workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
-    DropSide()
+    turtle.drop()
     Vs.chests=list
     return false
 end
@@ -207,6 +227,11 @@ function ClickedMenu(x)
 end
 
 function Menu()
+    if not Workbench then
+        RecipeMenu.setCursorPos(1, 1)
+        RecipeMenu.write("Requires Crafty Turtle")
+        return
+    end
     local buttons={'Craft one','Craft stack','Save','Delete'}
     local size={RecipeMenu.getSize()}
     local padding=size[1]
@@ -249,7 +274,7 @@ function LoopEnv()
     while true do
         os.pullEvent('Update_Env')
         LoadEnv()
-        Selected=''
+        Selected=-1
         ScrollIndex=0
         Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
     end
@@ -257,37 +282,11 @@ end
 
 function LoadEnv()
     Buffer=peripheral.wrap(Vs.getEnv('Buffer'))
-
     ColAmount =  tonumber(Vs.getEnv('Columns'))
 end
 --#endregion Function--
 
 --#region Main--
---#region Globals--
-ScrollIndex = 0
-Recipes={}
-ClickList = {}
-ClickMenu={}
-Selected=-1
-SelectedMenu=0
-MenuError=false
-Buffer={}
-
-MainScreen=term.current()
-MainSize = { MainScreen.getSize() }
-Screen=window.create(MainScreen,1,1,MainSize[1]-1,MainSize[2]-1)
-ScreenSize={ Screen.getSize() }
-ScrollBar=window.create(MainScreen,ScreenSize[1]+1,1,1,ScreenSize[2])
-RecipeMenu=window.create(MainScreen,1,MainSize[2],MainSize[1],1)
-
-
-ColAmount=2
-DropSide=turtle.drop
-SuckSide=turtle.suckDown
-Workbench = peripheral.find("workbench")
-
-
---#endregion Globals--
 repeat
     sleep(0.1)
 until Vs.getEnv()~=nil
@@ -303,9 +302,9 @@ if not fs.exists(Vs.name..'/Recipes/') then
 end
 
 Menu()
-Screen.setCursorPos(1, 1 )
+Screen.setCursorPos(1, 1)
 Recipes=fs.list(Vs.name..'/Recipes')
 ClickList=Um.Print(Recipes,Selected,ScrollIndex,ScrollBar,Screen,ColAmount)
 
-parallel.waitForAll(LoopPrint,LoopEnv)
+parallel.waitForAll(LoopPrint, LoopEnv)
 --#endregion Main--
