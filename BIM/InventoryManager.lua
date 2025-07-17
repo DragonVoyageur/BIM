@@ -64,6 +64,7 @@ end
 
 local function SortList()
     table.sort(list, sortFunction[2])
+    -- hacky way to clone Vs.list
     Filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
     table.sort(filtered, sortFunction[2])
 end
@@ -97,7 +98,7 @@ function SortItems()
     for item,data in pairs(Vs.chests) do
         local count=0
         local disName=nil
-        for i,slot1 in ipairs(data)do
+        for i, slot1 in ipairs(data)do
             if slot1.count~=0 then
                 local chest=peripheral.wrap(slot1.side)
                 assert(chest, "No chest found.")
@@ -119,8 +120,10 @@ function SortItems()
                 count=count+slot1.count
             end
         end
-        table.insert(itemlist,{count,disName})
-        table.insert(newList,{count,disName,item})
+        if count > 0 then
+            table.insert(itemlist,{count, disName, item})
+            table.insert(newList, {count, disName, item})
+        end
     end
     Vs.list=itemlist
     list=newList
@@ -185,18 +188,13 @@ end
 ---Grab an item from storage and drop it to the player
 ---@param id integer the index that the player clicks
 function DropItem(id)
+    -- filtered[id] == {int:count, string:displayName, string:itemID}; int keys
 
-    -- filtered[id] == {int:count, string:displayName}; int keys
-
-    if id==nil or list[id]==nil then return nil end
+    if id == nil or filtered[id] == nil then return nil end
     local stack = 0
     selected={filtered[id]}
-    if not list[id] then
-        Error("Drop Item", Vs.chests[list[id][3]], "DONE")
-    end
-    -- List[id].id = Item name i.e. minecraft:andesite
-    -- for i, data in ipairs(Vs.chests[List[id].id]) do -- attempt to index nil value
-    for i, data in ipairs(Vs.chests[list[id][3]]) do
+    local itemName = filtered[id][3]
+    for i, data in ipairs(Vs.chests[itemName]) do
         if data.count>0 then
             local transferd= buffer.pullItems(data.side, data.slot, 64 - stack)
             stack = stack + transferd
@@ -321,8 +319,8 @@ function BeginSearch()
                 searchBar.write(searchText:sub(#searchText-searchLength+3, -1))
             end
             searchBar.write(event[2])
-            searchText=searchText..event[2]
-        elseif event[1] == 'key'  and #searchText>0 then
+            searchText = searchText..event[2]
+        elseif event[1] == 'key' and #searchText>0 then
             local k= keys.getName(event[2])
             if k == 'backspace' then
                 if searchLength<=#searchText then
@@ -370,13 +368,13 @@ function Filter(list)
     local results=textutils.complete(searchtext,inverted)
 
     for i,v in ipairs(results) do
-        local value=inverted[searchtext..v]
+        local value = inverted[searchtext..v]
         if value then
-            table.insert(filtering,Vs.list[value])
+            table.insert(filtering, Vs.list[value])
         end
     end
 
-    filtered=filtering
+    filtered = filtering
 
 end
 
