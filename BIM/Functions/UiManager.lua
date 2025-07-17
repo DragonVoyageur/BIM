@@ -72,7 +72,7 @@ local function uiPrint(list,selected,scrollIndex,bar,screen,columns)
         selectlist[sle]=true
     end
     local pos={1,1}
-    table.insert(clickList,screenPos[2]+pos[2]-1,{})
+    table.insert(clickList, screenPos[2]+pos[2]-1, {})
     for i=1+scrollIndex*columns, #list,1 do
         pos={screen.getCursorPos()}
         if pos[1]+width-1>screenSize[1] then
@@ -97,7 +97,7 @@ local function uiPrint(list,selected,scrollIndex,bar,screen,columns)
     return clickList
 end
 
-local function uiClicked(clickList,x, y)
+local function uiClicked(clickList, x, y)
     local value =nil
     if clickList[y]~=nil then
         value= clickList[y][x]

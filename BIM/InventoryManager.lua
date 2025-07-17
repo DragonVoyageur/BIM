@@ -40,28 +40,6 @@ local searchText = ""
 local colAmount
 --#endregion Locals--
 
-local function Error(where, ...) -- debug tool
-    local errMonitor = peripheral.wrap("right")
-    assert(errMonitor, "Couldn't find monitor")
-    errMonitor.clear()
-    errMonitor.setCursorPos(1, 1)
-    errMonitor.write("Error at: " .. where)
-
-    local args = {...}
-    for i = 1, #args do
-        errMonitor.setCursorPos(1, i + 2)
-        errMonitor.write(args[i])
-    end
-    error("encountered an error.")
-end
-do
-    local errMonitor = peripheral.wrap("right")
-    if errMonitor then
-        errMonitor.clear()
-        errMonitor.setCursorPos(1, 1)
-    end
-end
-
 local function SortList()
     table.sort(list, sortFunction[2])
     -- hacky way to clone Vs.list
@@ -169,7 +147,12 @@ function LoopSort()
         if buffer then
             CountChests()
             SortItems()
-            scrollIndex=math.min(math.max(scrollIndex,0),math.max(math.ceil(#filtered/colAmount)-screenSize[2],0))
+
+            scrollIndex = math.min(
+                math.max(scrollIndex,0),
+                math.max(math.ceil(#filtered/colAmount)-screenSize[2],0)
+            )
+
             PrintScreen()
             if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
             sleep(10)
@@ -231,11 +214,13 @@ function LoopPrint()
     while true do
         if buffer then
             local event = { os.pullEvent() }
-            if event[1] == 'mouse_scroll'  and scrollIndex ~=math.min(math.max(scrollIndex + event[2],0),math.max(math.ceil(#filtered/colAmount)-screenSize[2],0)) then
-                scrollIndex = scrollIndex + event[2]
-                PrintScreen()
-                if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
-            elseif event[1] == 'mouse_click' and event[4]>=2 and event[3] < select(2, term.getSize()) then
+            if event[1] == 'mouse_scroll' then
+                if scrollIndex ~= math.min(math.max(scrollIndex + event[2],0),math.max(math.ceil(#filtered/colAmount)-screenSize[2],0)) then
+                    scrollIndex = scrollIndex + event[2]
+                    PrintScreen()
+                    if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
+                end
+            elseif event[1] == 'mouse_click' and event[4]>=2 and event[3] < select(1, term.getSize()) then
                 DropItem(Um.Click(clickList, event[3], event[4]))
             elseif event[1] =='monitor_touch' and monitor then
                 DropItem(Um.Click(sClickList, event[3], event[4]))
@@ -289,8 +274,19 @@ function LoopTopBar()
 
         if event[4] == 1 then -- only when clicked on top bar
             if event[3] > (#searchTitle) and event[3] < (sBSize[1]+#searchTitle) then
-                BeginSearch()
+                -- Clicked on search bar
+                if event[2] == 1 then
+                    BeginSearch()
+                elseif event[2] == 2 then -- if right clicked on search bar to clear
+                    searchText = ""
+                    search.setCursorPos(#searchTitle + 1, 1)
+                    search.write(string.rep(' ', (searchLength) + 1) .. '|')
+                    SortList()
+                    PrintScreen()
+                    BeginSearch()
+                end
             elseif event[3] > (searchSize[1] - #sortDisplay[sortFunction[1]]) then
+                -- Changing sort type
                 if sortFunction[1] + 1 <= 4 then
                     sortFunction = { sortFunction[1] + 1, listSort[sortFunction[1] + 1] }
                 else
@@ -311,15 +307,26 @@ function BeginSearch()
     searching=true
     while true do
         local event = { os.pullEvent() }
-        if  event[1] == 'mouse_click' and not (event[4]==1 and event[3]>(#searchTitle) and event[3]<(sBSize[1]+#searchTitle)) then
+        local mouseInSearchBox = (event[4]==1 and event[3]>(#searchTitle) and event[3]<(sBSize[1]+#searchTitle))
+        if event[1] == 'mouse_click' and not mouseInSearchBox then
             break
+        elseif event[1] == "mouse_click" and event[2] == 2 and mouseInSearchBox then
+            -- if right clicked on search bar to clear
+            searchText = ""
+            search.setCursorPos(#searchTitle + 1, 1)
+            search.write(string.rep(' ', (searchLength) + 1) .. '|')
+            search.setCursorPos(#searchTitle + 1, 1)
+            SortList()
+            PrintScreen()
         elseif  event[1] == 'char' then
-            if searchLength<=#searchText+3 then
-                searchBar.setCursorPos(1,1)
-                searchBar.write(searchText:sub(#searchText-searchLength+3, -1))
+            searchText = searchText .. event[2]
+            searchBar.setCursorPos(1, 1)
+            searchBar.clear()
+            local displayText = searchText
+            if #searchText > searchLength then
+                displayText = searchText:sub(-searchLength)
             end
-            searchBar.write(event[2])
-            searchText = searchText..event[2]
+            searchBar.write(displayText)
         elseif event[1] == 'key' and #searchText>0 then
             local k= keys.getName(event[2])
             if k == 'backspace' then
@@ -334,9 +341,9 @@ function BeginSearch()
                 searchText=searchText:sub(1, -2)
             end
         end
-        if  event[1] == 'char' or event[1] == 'key' then
-        SortList()
-        PrintScreen()
+        if event[1] == 'char' or event[1] == 'key' then
+            SortList()
+            PrintScreen()
         end
     end
     searchBar.setCursorBlink(false)
@@ -377,6 +384,32 @@ function Filter(list)
     filtered = filtering
 
 end
+
+-- function Filter(list)
+--     if #searchText < 1 then
+--         filtered = list
+--         return
+--     end
+
+--     -- Build a lookup table for display names
+--     local keylist = {}
+--     for i, v in ipairs(list) do
+--         keylist[v[2]:lower():gsub("%s+", "")] = i
+--     end
+
+--     local searchtext = searchText:lower():gsub("%s+", "")
+--     local results = textutils.complete(searchtext, keylist)
+--     local filtering = {}
+
+--     for _, v in ipairs(results) do
+--         local idx = keylist[searchtext .. v]
+--         if idx then
+--             table.insert(filtering, list[idx])
+--         end
+--     end
+
+--     filtered = filtering
+-- end
 
 --#endregion Functions--
 
