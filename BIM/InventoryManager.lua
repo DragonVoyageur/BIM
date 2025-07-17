@@ -1,6 +1,8 @@
 --todo remember sorting preferences
 
 --#region Locals--
+local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
+local sortIndex = 1 -- The index of which sort type is currently being used.
 local listSort = {
     function(left, right) return left[2] < right[2] end,
     function(left, right) return left[2] > right[2] end,
@@ -13,8 +15,6 @@ local sortDisplay = {
     "Amount ^",
     "Amount v"
 }
-
-local sortFunction = { 1, listSort[1] }
 
 local list = {}
 local filtered = {} -- {... 4 values}
@@ -81,10 +81,10 @@ local function filter(fList)
 end
 
 local function sortList()
-    table.sort(list, sortFunction[2])
+    table.sort(list, listSort[sortIndex])
     -- hacky way to clone Vs.list
     filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
-    table.sort(filtered, sortFunction[2])
+    table.sort(filtered, listSort[sortIndex])
 end
 
 --#region Functions--
@@ -294,6 +294,19 @@ local function loadEnv()
     else
         secondScreen.setVisible(false)
     end
+
+    settings.load(settingPath)
+    local otherSettingNames = { "sortIndex" }
+    local otherOptions = {
+        { description = ' The last used sort type.', default = 1, type = 'number' }
+    }
+    for i, name in ipairs(otherSettingNames) do
+        settings.define(Vs.name .. '.' .. name, otherOptions[i])
+    end
+    sortIndex = settings.get(Vs.name .. ".sortIndex") or 1
+    settings.set(Vs.name .. ".sortIndex", sortIndex)
+    settings.save(settingPath)
+
 end
 
 local function loopEnv()
@@ -374,15 +387,14 @@ local function loopTopBar()
                     printScreen()
                     beginSearch()
                 end
-            elseif event[3] > (searchSize[1] - #sortDisplay[sortFunction[1]]) then
+            elseif event[3] > (searchSize[1] - #sortDisplay[sortIndex]) then
                 -- Changing sort type
-                if sortFunction[1] + 1 <= 4 then
-                    sortFunction = { sortFunction[1] + 1, listSort[sortFunction[1] + 1] }
-                else
-                    sortFunction = { 1, listSort[1] }
-                end
-                search.setCursorPos(searchSize[1] - #sortDisplay[sortFunction[1]] - 3, 1)
-                search.write("   " .. sortDisplay[sortFunction[1]])
+                sortIndex = (sortIndex % 4) + 1 -- wrap result
+                settings.set(Vs.name .. ".sortIndex", sortIndex)
+                settings.save(settingPath)
+
+                search.setCursorPos(searchSize[1] - #sortDisplay[sortIndex] - 3, 1)
+                search.write("   " .. sortDisplay[sortIndex])
                 sortList()
                 printScreen()
             end
@@ -405,8 +417,8 @@ screen.setCursorPos(1, 1)
 screen.write('Sorting...')
 search.setCursorPos(1, 1)
 search.write(searchTitle .. string.rep(' ', (searchLength) + 1) .. '|')
-search.setCursorPos(searchSize[1] - #sortDisplay[sortFunction[1]], 1)
-search.write(sortDisplay[sortFunction[1]])
+search.setCursorPos(searchSize[1] - #sortDisplay[sortIndex], 1)
+search.write(sortDisplay[sortIndex])
 searchBar.clear()
 local success, result = pcall(function()
     parallel.waitForAll(loopSort, loopPrint, storeItems, loopEnv, loopTopBar)
