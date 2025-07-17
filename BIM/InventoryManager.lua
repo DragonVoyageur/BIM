@@ -1,3 +1,5 @@
+--todo remember sorting preferences
+
 --#region Locals--
 local listSort = {
     function(left, right) return left[2] < right[2] end,
@@ -40,16 +42,53 @@ local searchText = ""
 local colAmount
 --#endregion Locals--
 
-local function SortList()
+local function metaCall(table)
+    local file = fs.open(".test3", 'w')
+    if file then
+        file.write(textutils.serialize(table))
+        file.close()
+    else
+        error("Failed to open .test3 for writing") -- in case of read only / disk full etc.
+    end
+    local keylist = {}
+    for i, v in ipairs(table) do
+        keylist[v[2]:lower():gsub("%s+", "")] = i
+    end
+    return keylist
+end
+
+local function filter(fList)
+    if #searchText < 1 then
+        filtered = fList
+        return
+    end                                             -- if no search query
+
+    setmetatable(fList, { __call = metaCall })
+    local searchtext = searchText:lower():gsub("%s+", "")
+    local inverted = fList()
+    local filtering = {}
+    local results = textutils.complete(searchtext, inverted)
+
+    for i, v in ipairs(results) do
+        local value = inverted[searchtext .. v]
+        if value then
+            table.insert(filtering, Vs.list[value])
+        end
+    end
+
+    filtered = filtering
+end
+
+local function sortList()
     table.sort(list, sortFunction[2])
     -- hacky way to clone Vs.list
-    Filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
+    filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
     table.sort(filtered, sortFunction[2])
 end
 
 --#region Functions--
 ---Maps out where items are
-function CountChests()
+local function countChests()
     local chestlist={}
     for i,chest in ipairs(chests) do
         local items=chest.list()
@@ -70,7 +109,7 @@ function CountChests()
     Vs.chests= chestlist
 end
 
-function SortItems()
+local function sortItems()
     local newList={}
     local itemlist={}
     for item,data in pairs(Vs.chests) do
@@ -105,10 +144,10 @@ function SortItems()
     end
     Vs.list=itemlist
     list=newList
-    SortList()
+    sortList()
 end
 
-function StoreItems()
+local function storeItems()
     while true do
         if buffer then
             local  event={os.pullEvent()}
@@ -142,18 +181,27 @@ function StoreItems()
     end
 end
 
-function LoopSort()
+local function printScreen()
+    searchBar.setCursorBlink(false)
+    clickList = Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
+    if searching then
+        searchBar.setCursorBlink(true)
+        searchBar.setCursorPos(math.min(#searchText, searchLength) + 1, 1)
+    end
+end
+
+local function loopSort()
     while true do
         if buffer then
-            CountChests()
-            SortItems()
+            countChests()
+            sortItems()
 
             scrollIndex = math.min(
                 math.max(scrollIndex,0),
                 math.max(math.ceil(#filtered/colAmount)-screenSize[2],0)
             )
 
-            PrintScreen()
+            printScreen()
             if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
             sleep(10)
         else
@@ -170,7 +218,7 @@ end
 
 ---Grab an item from storage and drop it to the player
 ---@param id integer the index that the player clicks
-function DropItem(id)
+local function dropItem(id)
     -- filtered[id] == {int:count, string:displayName, string:itemID}; int keys
 
     if id == nil or filtered[id] == nil then return nil end
@@ -201,29 +249,20 @@ function DropItem(id)
     os.queueEvent('turtle_inventory_start')
 end
 
-function PrintScreen()
-    searchBar.setCursorBlink(false)
-    clickList=Um.Print(filtered,selected,scrollIndex,scrollBar,screen,colAmount)
-    if searching then
-        searchBar.setCursorBlink(true)
-        searchBar.setCursorPos(math.min(#searchText,searchLength)+1,1)
-    end
-end
-
-function LoopPrint()
+local function loopPrint()
     while true do
         if buffer then
             local event = { os.pullEvent() }
             if event[1] == 'mouse_scroll' then
                 if scrollIndex ~= math.min(math.max(scrollIndex + event[2],0),math.max(math.ceil(#filtered/colAmount)-screenSize[2],0)) then
                     scrollIndex = scrollIndex + event[2]
-                    PrintScreen()
+                    printScreen()
                     if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
                 end
             elseif event[1] == 'mouse_click' and event[4]>=2 and event[3] < select(1, term.getSize()) then
-                DropItem(Um.Click(clickList, event[3], event[4]))
+                dropItem(Um.Click(clickList, event[3], event[4]))
             elseif event[1] =='monitor_touch' and monitor then
-                DropItem(Um.Click(sClickList, event[3], event[4]))
+                dropItem(Um.Click(sClickList, event[3], event[4]))
             elseif event[1]=='click_ignore' then
                 os.pullEvent('click_start')
             end
@@ -233,42 +272,91 @@ function LoopPrint()
     end
 end
 
-function LoopEnv()
-    while true do
-        os.pullEvent('Update_Env')
-        LoadEnv()
-        selected = {}
-        scrollIndex=0
-        PrintScreen()
-        if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
-        os.queueEvent('Updated_Env')
-    end
-end
+local function loadEnv()
+    buffer = peripheral.wrap(Vs.getEnv('Buffer'))
 
-function LoadEnv()
-    buffer=peripheral.wrap(Vs.getEnv('Buffer'))
-
-    local ignore={}
-    for _,ig in pairs(Vs.getEnv('IgnoreInv'))do
-        ignore[ig]=true
+    local ignore = {}
+    for _, ig in pairs(Vs.getEnv('IgnoreInv')) do
+        ignore[ig] = true
     end
-    chests={peripheral.find(Vs.getEnv('Inventories'), function(name,type)
+    chests = { peripheral.find(Vs.getEnv('Inventories'), function(name, type)
         return not (ignore[name]) or false
-    end)}
+    end) }
 
     colAmount = tonumber(Vs.getEnv('Columns'))
 
-    monitor=peripheral.wrap(Vs.getEnv('Monitor'))
+    monitor = peripheral.wrap(Vs.getEnv('Monitor'))
     if monitor then
-        local monitorSize={monitor.getSize()}
-        secondScreen.reposition(1,1,monitorSize[1],monitorSize[2],monitor)
+        local monitorSize = { monitor.getSize() }
+        secondScreen.reposition(1, 1, monitorSize[1], monitorSize[2], monitor)
         secondScreen.setVisible(true)
     else
         secondScreen.setVisible(false)
     end
 end
 
-function LoopTopBar()
+local function loopEnv()
+    while true do
+        os.pullEvent('Update_Env')
+        loadEnv()
+        selected = {}
+        scrollIndex=0
+        printScreen()
+        if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
+        os.queueEvent('Updated_Env')
+    end
+end
+
+local function beginSearch()
+    searchBar.setCursorPos(math.min(#searchText + 1, searchLength - 1), 1)
+    searchBar.setCursorBlink(true)
+    searching = true
+    while true do
+        local event = { os.pullEvent() }
+        local mouseInSearchBox = (event[4] == 1 and event[3] > (#searchTitle) and event[3] < (sBSize[1] + #searchTitle))
+        if event[1] == 'mouse_click' and not mouseInSearchBox then
+            break
+        elseif event[1] == "mouse_click" and event[2] == 2 and mouseInSearchBox then
+            -- if right clicked on search bar to clear
+            searchText = ""
+            search.setCursorPos(#searchTitle + 1, 1)
+            search.write(string.rep(' ', (searchLength) + 1) .. '|')
+            search.setCursorPos(#searchTitle + 1, 1)
+            sortList()
+            printScreen()
+        elseif event[1] == 'char' then
+            searchText = searchText .. event[2]
+            searchBar.setCursorPos(1, 1)
+            searchBar.clear()
+            local displayText = searchText
+            if #searchText > searchLength then
+                displayText = searchText:sub(-searchLength)
+            end
+            searchBar.write(displayText)
+        elseif event[1] == 'key' and #searchText > 0 then
+            local k = keys.getName(event[2])
+            if k == 'backspace' then
+                if searchLength <= #searchText then
+                    searchBar.setCursorPos(1, 1)
+                    searchBar.write(searchText:sub(#searchText + 1 - searchLength, -2))
+                    searchBar.write(' ')
+                else
+                    searchBar.setCursorPos(#searchText, 1)
+                    searchBar.write(' ')
+                end
+                searchText = searchText:sub(1, -2)
+            end
+        end
+        if event[1] == 'char' or event[1] == 'key' then
+            sortList()
+            printScreen()
+        end
+    end
+    searchBar.setCursorBlink(false)
+    searching = false
+end
+
+local function loopTopBar()
     while true do
         local event = { os.pullEvent("mouse_click") }
 
@@ -276,14 +364,14 @@ function LoopTopBar()
             if event[3] > (#searchTitle) and event[3] < (sBSize[1]+#searchTitle) then
                 -- Clicked on search bar
                 if event[2] == 1 then
-                    BeginSearch()
+                    beginSearch()
                 elseif event[2] == 2 then -- if right clicked on search bar to clear
                     searchText = ""
                     search.setCursorPos(#searchTitle + 1, 1)
                     search.write(string.rep(' ', (searchLength) + 1) .. '|')
-                    SortList()
-                    PrintScreen()
-                    BeginSearch()
+                    sortList()
+                    printScreen()
+                    beginSearch()
                 end
             elseif event[3] > (searchSize[1] - #sortDisplay[sortFunction[1]]) then
                 -- Changing sort type
@@ -294,122 +382,12 @@ function LoopTopBar()
                 end
                 search.setCursorPos(searchSize[1] - #sortDisplay[sortFunction[1]] - 3, 1)
                 search.write("   " .. sortDisplay[sortFunction[1]])
-                SortList()
-                PrintScreen()
+                sortList()
+                printScreen()
             end
         end
     end
 end
-
-function BeginSearch()
-    searchBar.setCursorPos(math.min(#searchText+1,searchLength-1),1)
-    searchBar.setCursorBlink(true)
-    searching=true
-    while true do
-        local event = { os.pullEvent() }
-        local mouseInSearchBox = (event[4]==1 and event[3]>(#searchTitle) and event[3]<(sBSize[1]+#searchTitle))
-        if event[1] == 'mouse_click' and not mouseInSearchBox then
-            break
-        elseif event[1] == "mouse_click" and event[2] == 2 and mouseInSearchBox then
-            -- if right clicked on search bar to clear
-            searchText = ""
-            search.setCursorPos(#searchTitle + 1, 1)
-            search.write(string.rep(' ', (searchLength) + 1) .. '|')
-            search.setCursorPos(#searchTitle + 1, 1)
-            SortList()
-            PrintScreen()
-        elseif  event[1] == 'char' then
-            searchText = searchText .. event[2]
-            searchBar.setCursorPos(1, 1)
-            searchBar.clear()
-            local displayText = searchText
-            if #searchText > searchLength then
-                displayText = searchText:sub(-searchLength)
-            end
-            searchBar.write(displayText)
-        elseif event[1] == 'key' and #searchText>0 then
-            local k= keys.getName(event[2])
-            if k == 'backspace' then
-                if searchLength<=#searchText then
-                    searchBar.setCursorPos(1,1)
-                    searchBar.write(searchText:sub(#searchText+1-searchLength, -2))
-                    searchBar.write(' ')
-                else
-                    searchBar.setCursorPos(#searchText,1)
-                    searchBar.write(' ')
-                end
-                searchText=searchText:sub(1, -2)
-            end
-        end
-        if event[1] == 'char' or event[1] == 'key' then
-            SortList()
-            PrintScreen()
-        end
-    end
-    searchBar.setCursorBlink(false)
-    searching=false
-end
-
-function MetaCall(table)
-    local file = fs.open(".test3", 'w')
-    if file then
-        file.write(textutils.serialize(table))
-        file.close()
-    else
-        error("Failed to open .test3 for writing") -- in case of read only / disk full etc.
-    end
-    local keylist = {}
-    for i, v in ipairs(table) do
-        keylist[v[2]:lower():gsub("%s+", "")] = i
-    end
-    return keylist
-end
-
-function Filter(list)
-    if #searchText<1 then filtered=list return end -- if no search query
-
-    setmetatable(list,{__call=MetaCall})
-    local searchtext=searchText:lower():gsub("%s+", "")
-    local inverted=list()
-    local filtering={}
-    local results=textutils.complete(searchtext,inverted)
-
-    for i,v in ipairs(results) do
-        local value = inverted[searchtext..v]
-        if value then
-            table.insert(filtering, Vs.list[value])
-        end
-    end
-
-    filtered = filtering
-
-end
-
--- function Filter(list)
---     if #searchText < 1 then
---         filtered = list
---         return
---     end
-
---     -- Build a lookup table for display names
---     local keylist = {}
---     for i, v in ipairs(list) do
---         keylist[v[2]:lower():gsub("%s+", "")] = i
---     end
-
---     local searchtext = searchText:lower():gsub("%s+", "")
---     local results = textutils.complete(searchtext, keylist)
---     local filtering = {}
-
---     for _, v in ipairs(results) do
---         local idx = keylist[searchtext .. v]
---         if idx then
---             table.insert(filtering, list[idx])
---         end
---     end
-
---     filtered = filtering
--- end
 
 --#endregion Functions--
 
@@ -419,7 +397,7 @@ end
 repeat
     sleep(0.1)
 until Vs.getEnv()~=nil
-LoadEnv()
+loadEnv()
 
 
 screen.setCursorPos(1,1)
@@ -430,7 +408,7 @@ search.setCursorPos(searchSize[1]-#sortDisplay[sortFunction[1]],1)
 search.write(sortDisplay[sortFunction[1]])
 searchBar.clear()
 local success, result = pcall(function()
-    parallel.waitForAll(LoopSort,LoopPrint,StoreItems, LoopEnv,LoopTopBar)
+    parallel.waitForAll(loopSort,loopPrint,storeItems, loopEnv,loopTopBar)
 end)
 
 if not success then
