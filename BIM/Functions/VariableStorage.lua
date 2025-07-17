@@ -1,20 +1,20 @@
-local projectName='BIM'
-local chests={}
-local env={}
-local itemlist={}
+local projectName = 'BIM'
+local chests = {}
+local env = {}
+local itemlist = {}
 
-local function setKeyEnv(value,key)
-    if key~=nil then
-        env[key]=value
+local function setKeyEnv(value, key)
+    if key ~= nil then
+        env[key] = value
     end
 end
 
 local function setEnv(value)
-    env=value
+    env = value
 end
 
 local function getEnv(key)
-    if key==nil then
+    if key == nil then
         return env
     else
         return env[key]
