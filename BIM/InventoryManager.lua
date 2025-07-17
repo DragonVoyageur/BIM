@@ -237,10 +237,10 @@ function LoopPrint()
                 scrollIndex = scrollIndex + event[2]
                 PrintScreen()
                 if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end
-            elseif event[1] == 'mouse_click' and event[4]>=2 then
-                DropItem(Um.Click(clickList,event[3], event[4]))
+            elseif event[1] == 'mouse_click' and event[4]>=2 and event[3] < select(2, term.getSize()) then
+                DropItem(Um.Click(clickList, event[3], event[4]))
             elseif event[1] =='monitor_touch' and monitor then
-                DropItem(Um.Click(sClickList,event[3], event[4]))
+                DropItem(Um.Click(sClickList, event[3], event[4]))
             elseif event[1]=='click_ignore' then
                 os.pullEvent('click_start')
             end
@@ -287,19 +287,22 @@ end
 
 function LoopTopBar()
     while true do
-        local event = { os.pullEvent() }
-        if  event[1] == 'mouse_click' and event[4]==1 and event[3]>(#searchTitle) and event[3]<(sBSize[1]+#searchTitle) then
-            BeginSearch()
-        elseif event[1] == 'mouse_click' and event[3]>(searchSize[1]-#sortDisplay[sortFunction[1]]) then
-            if sortFunction[1]+1<=4 then
-                sortFunction={sortFunction[1]+1,listSort[sortFunction[1]+1]}
-            else
-                sortFunction={1,listSort[1]}
+        local event = { os.pullEvent("mouse_click") }
+
+        if event[4] == 1 then -- only when clicked on top bar
+            if event[3] > (#searchTitle) and event[3] < (sBSize[1]+#searchTitle) then
+                BeginSearch()
+            elseif event[3] > (searchSize[1] - #sortDisplay[sortFunction[1]]) then
+                if sortFunction[1] + 1 <= 4 then
+                    sortFunction = { sortFunction[1] + 1, listSort[sortFunction[1] + 1] }
+                else
+                    sortFunction = { 1, listSort[1] }
+                end
+                search.setCursorPos(searchSize[1] - #sortDisplay[sortFunction[1]] - 3, 1)
+                search.write("   " .. sortDisplay[sortFunction[1]])
+                SortList()
+                PrintScreen()
             end
-            search.setCursorPos(searchSize[1]-#sortDisplay[sortFunction[1]]-3,1)
-            search.write("   "..sortDisplay[sortFunction[1]])
-            SortList()
-            PrintScreen()
         end
     end
 end
