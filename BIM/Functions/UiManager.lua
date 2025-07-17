@@ -11,11 +11,9 @@ local function thousand(count)
 end
 local function tableExplore(tb)
     if type(tb) == 'table' then
-        local text=''
-        for i, ta in pairs(tb) do
-            text=text..tableExplore(ta)
-        end
-        return text
+        local count = tb[1] or 0
+        local name = tb[2] or ""
+        return thousand(count) .. ' ' .. tostring(name)
     elseif type(tb) == 'number' then
         return thousand(tb)..' '
     elseif type(tb) == 'nil' then
