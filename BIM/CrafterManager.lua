@@ -121,7 +121,7 @@ function CraftOne()
             return true
         end
     end
-    if table.maxn(temp) == 0 then return true end
+    if not next(temp) then return true end
     for i, v in ipairs(workbenchInputSlots) do
         if temp[v]~=nil then
             for j, item in ipairs(temp[v])do
@@ -187,7 +187,7 @@ function CraftStack()
             end
         end
     until counter<=0
-    if table.maxn(temp)==0 then return true end
+    if not next(temp) then return true end
     for i, v in ipairs(workbenchInputSlots) do
         if temp[v] ~= nil then
             for j, item in ipairs(temp[v])do

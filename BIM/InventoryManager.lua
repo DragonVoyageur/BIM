@@ -197,7 +197,7 @@ function DropItem(id)
         turtle.select(16)
         turtle.suckDown()
         turtle.drop()
-    until table.maxn(buffer.list())==0
+    until not next(buffer.list())
     os.queueEvent('turtle_inventory_start')
 end
 
