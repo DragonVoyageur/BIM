@@ -19,8 +19,8 @@ local filtered = {} -- {... 4 values}
 local clickList = {}
 local sClickList = {}
 local scrollIndex = 0
-local selected = 0
-local buffer = nil
+local selected = {}
+local buffer
 local chests = {}
 local monitor = nil
 
@@ -237,7 +237,7 @@ function LoopEnv()
     while true do
         os.pullEvent('Update_Env')
         LoadEnv()
-        selected=0
+        selected = {}
         scrollIndex=0
         PrintScreen()
         if monitor then sClickList=Um.Print(filtered,selected,0,nil,secondScreen,colAmount) end

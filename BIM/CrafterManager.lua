@@ -87,9 +87,9 @@ function DeleteRecipe()
 end
 
 function CraftOne()
-    if not workbench then return false end
+    if not workbench then return true end
     if not selected then return true end
-    if not fs.exists(Vs.name..'/Recipes/'..selected) then return true end
+    if not fs.exists(Vs.name .. '/Recipes/' .. selected) then return true end
     local recipe = LoadFile(Vs.name..'/Recipes/'..selected)
     local list = Vs.chests
     if recipe==nil or list==nil then return true end
@@ -140,7 +140,7 @@ function CraftOne()
 end
 
 function CraftStack()
-    if not workbench then return false end
+    if not workbench then return true end
     if not selected then return true end
     if not fs.exists(Vs.name..'/Recipes/'..selected) then return true end
     local recipe = LoadFile(Vs.name..'/Recipes/'..selected)
