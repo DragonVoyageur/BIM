@@ -1,4 +1,3 @@
---todo remember sorting preferences
 
 --#region Locals--
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
@@ -10,10 +9,10 @@ local listSort = {
     function(left, right) return left[1] > right[1] end,
 }
 local sortDisplay = {
-    "Name ^",
-    "Name v",
-    "Amount ^",
-    "Amount v"
+    "Name " .. string.char(0x1E),
+    "Name " .. string.char(0x1F),
+    "Amount " .. string.char(0x1E),
+    "Amount " .. string.char(0x1F)
 }
 
 local list = {}
@@ -43,41 +42,23 @@ local searchText = ""
 local colAmount
 --#endregion Locals--
 
-local function metaCall(table)
-    local file = fs.open(".test3", 'w')
-    if file then
-        file.write(textutils.serialize(table))
-        file.close()
-    else
-        error("Failed to open .test3 for writing") -- in case of read only / disk full etc.
-    end
-    local keylist = {}
-    for i, v in ipairs(table) do
-        keylist[v[2]:lower():gsub("%s+", "")] = i
-    end
-    return keylist
-end
-
 local function filter(fList)
     if #searchText < 1 then
         filtered = fList
         return
-    end -- if no search query
+    end
 
-    setmetatable(fList, { __call = metaCall })
-    local searchtext = searchText:lower():gsub("%s+", "")
-    local inverted = fList()
-    local filtering = {}
-    local results = textutils.complete(searchtext, inverted)
+    local lowerSearchText = searchText:lower()
+    local out = {}
 
-    for i, v in ipairs(results) do
-        local value = inverted[searchtext .. v]
-        if value then
-            table.insert(filtering, Vs.list[value])
+    for _, v in ipairs(fList) do
+        local name = v[2]:lower()
+        if name:find(lowerSearchText, 1, true) then
+            table.insert(out, v)
         end
     end
 
-    filtered = filtering
+    filtered = out
 end
 
 local function sortList()
