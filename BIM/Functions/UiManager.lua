@@ -84,8 +84,7 @@ local function uiPrint(list, selected, scrollIndex, bar, screen, columns)
             pos = { screen.getCursorPos() }
             table.insert(clickList, screenPos[2] + pos[2] - 1, {})
         end
-        local text = string.sub(string.format('%-' .. tostring(width) .. 's', tableExplore(list[i])), 1, width - 1) ..
-        ' '
+        local text = string.sub(string.format('%-' .. tostring(width) .. 's', tableExplore(list[i])), 1, width - 1) .. ' '
         for j = screenPos[1] + pos[1] - 1, screenPos[1] + pos[1] + width - 1, 1 do
             table.insert(clickList[screenPos[2] + pos[2] - 1], j, i)
         end

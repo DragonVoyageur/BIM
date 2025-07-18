@@ -1,3 +1,4 @@
+--todo figure out why this sometimes swaps some items with the same count when searching and hitting shift
 
 --#region Locals--
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
@@ -155,7 +156,7 @@ local function storeItems()
                     end
                 end
                 for i, item in pairs(buffer.list()) do
-                    for _, chest in pairs(chests) do
+                    for _, chest in ipairs(chests) do
                         if item.count == 0 then break end
                         buffer.pushItems(peripheral.getName(chest), i)
                     end
@@ -228,10 +229,32 @@ local function dropItem(id, percentOfStack)
     local stack = 0
     selected = { filtered[id] }
 
-    for _, data in ipairs(chestData) do
+    for i = #chestData, 1, -1 do
+        local data = chestData[i]
         if data.count > 0 and stack < amountToPull then
             local amount = math.min(amountToPull - stack, data.count)
             local transferred = buffer.pullItems(data.side, data.slot, amount)
+
+            -- Remove from Vs.list to prevent items from re-appearing when sorting
+            -- todo O(n) check if this can ba faster; may not need to after refactoring to stop need for sorting
+            for l = #Vs.list, 1, -1 do
+                if Vs.list[l][1] == 0 then
+                    table.remove(Vs.list, l)
+                end
+            end
+
+            -- remove from filtered list to instantly disappear from list instead of showing item with 0 count
+            filtered[id][1] = filtered[id][1] - transferred
+            if filtered[id][1] == 0 then
+                table.remove(filtered, id)
+            end
+
+            -- update variable storage chests
+            data.count = data.count - transferred
+            if data.count == 0 then
+                table.remove(chestData, i)
+            end
+
             stack = stack + transferred
             if stack >= amountToPull then
                 break
@@ -240,7 +263,6 @@ local function dropItem(id, percentOfStack)
     end
     Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
     if monitor then Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
-    -- turtle.drop() -- Did we really need to drop here?
     turtle.select(16)
     repeat
         os.queueEvent('turtle_inventory_ignore')
@@ -276,15 +298,7 @@ end
 
 local function loadEnv()
     buffer = peripheral.wrap(Vs.getEnv('Buffer'))
-
-    local ignore = {}
-    for _, ig in pairs(Vs.getEnv('IgnoreInv')) do
-        ignore[ig] = true
-    end
-    chests = { peripheral.find(Vs.getEnv('Inventories'), function(name, type)
-        return not (ignore[name]) or false
-    end) }
-
+    chests = {peripheral.find(Vs.getEnv("Inventories"))}
     colAmount = tonumber(Vs.getEnv('Columns'))
 
     monitor = peripheral.wrap(Vs.getEnv('Monitor'))
