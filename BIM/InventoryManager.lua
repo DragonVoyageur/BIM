@@ -217,21 +217,33 @@ end
 
 ---Grab an item from storage and drop it to the player
 ---@param id integer the index that the player clicks
-local function dropItem(id)
-    -- filtered[id] == {int:count, string:displayName, string:itemID}; int keys
-
+---@param percentOfStack number 0-1 how much of a stack to pull
+local function dropItem(id, percentOfStack)
     if id == nil or filtered[id] == nil then return nil end
+    local itemName = filtered[id][3]
+    local chestData = Vs.chests[itemName]
+    if not chestData or #chestData == 0 then return nil end
+
+    -- Cache maxCount
+    local maxCount = 64
+    local chest = peripheral.wrap(chestData[1].side)
+    if chest then
+        local detail = chest.getItemDetail(chestData[1].slot)
+        if detail and detail.maxCount then
+            maxCount = detail.maxCount
+        end
+    end
+
+    local amountToPull = math.ceil(maxCount * percentOfStack)
     local stack = 0
     selected = { filtered[id] }
-    local itemName = filtered[id][3]
-    for i, data in ipairs(Vs.chests[itemName]) do
-        if data.count > 0 then
-            local transferd = buffer.pullItems(data.side, data.slot, 64 - stack)
-            stack = stack + transferd
-            Vs.list[id][1] = Vs.list[id][1] - transferd
-            filtered[id][1] = filtered[id][1] - transferd
-            Vs.chests[data.name][i].count = Vs.chests[data.name][i].count - transferd
-            if stack >= 64 then
+
+    for _, data in ipairs(chestData) do
+        if data.count > 0 and stack < amountToPull then
+            local amount = math.min(amountToPull - stack, data.count)
+            local transferred = buffer.pullItems(data.side, data.slot, amount)
+            stack = stack + transferred
+            if stack >= amountToPull then
                 break
             end
         end
@@ -259,10 +271,10 @@ local function loopPrint()
                     if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 end
             elseif event[1] == 'mouse_click' and event[4] >= 2 and event[3] < select(1, term.getSize()) then
-                local dropAmount = {1, 0.01, 0.5}
-                dropItem(Um.Click(clickList, event[3], event[4]))
+                local dropAmount = { 1, 0.5, 0.01 }
+                dropItem(Um.Click(clickList, event[3], event[4]), dropAmount[event[2]])
             elseif event[1] == 'monitor_touch' and monitor then
-                dropItem(Um.Click(sClickList, event[3], event[4]))
+                dropItem(Um.Click(sClickList, event[3], event[4]), 1)
             elseif event[1] == 'click_ignore' then
                 os.pullEvent('click_start')
             end
