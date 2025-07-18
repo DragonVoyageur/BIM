@@ -42,9 +42,26 @@ local searchText = ""
 local colAmount
 --#endregion Locals--
 
+local function trim(s) return s:match("^%s*(.-)%s*$") end
+
 local function filter(fList)
     if #searchText < 1 then
         filtered = fList
+        return
+    end
+
+    local trimmedSearch = trim(searchText)
+    if trimmedSearch:sub(1, 1) == "@" then -- search by mod
+        local lowerSearchText = trimmedSearch:sub(2) -- exclude '@'
+        local out = {}
+
+        for _, v in ipairs(fList) do
+            local id = v[3]
+            if id:sub(1, #lowerSearchText) == lowerSearchText then
+                table.insert(out, v)
+            end
+        end
+        filtered = out
         return
     end
 
@@ -242,6 +259,7 @@ local function loopPrint()
                     if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 end
             elseif event[1] == 'mouse_click' and event[4] >= 2 and event[3] < select(1, term.getSize()) then
+                local dropAmount = {1, 0.01, 0.5}
                 dropItem(Um.Click(clickList, event[3], event[4]))
             elseif event[1] == 'monitor_touch' and monitor then
                 dropItem(Um.Click(sClickList, event[3], event[4]))
