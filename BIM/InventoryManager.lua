@@ -15,7 +15,6 @@ local sortDisplay = {
     "Amount " .. string.char(0x1F)
 }
 
-local list = {}
 local filtered = {} -- {... 4 values}
 local clickList = {}
 local sClickList = {}
@@ -79,9 +78,7 @@ local function filter(fList)
 end
 
 local function sortList()
-    table.sort(list, listSort[sortIndex])
-    -- hacky way to clone Vs.list
-    filter(textutils.unserialiseJSON(textutils.serialiseJSON(Vs.list)))
+    filter(Vs.list)
     table.sort(filtered, listSort[sortIndex])
 end
 
@@ -109,7 +106,6 @@ local function countChests()
 end
 
 local function sortItems()
-    local newList = {}
     local itemlist = {}
     for item, data in pairs(Vs.chests) do
         local count = 0
@@ -118,14 +114,10 @@ local function sortItems()
             if slot1.count ~= 0 then
                 local chest = peripheral.wrap(slot1.side)
                 assert(chest, "No chest found.")
-                -- local limit=chest.getItemLimit(slot1.slot)
-                -- if not disName then disName=chest.getItemDetail(slot1.slot).displayName end
                 if not disName then
                     local detail = chest.getItemDetail(slot1.slot)
                     if detail and detail.displayName then
                         disName = detail.displayName
-                    else
-                        disName = "Unknown"
                     end
                 end
                 for j = i + 1, #data, 1 do
@@ -138,11 +130,9 @@ local function sortItems()
         end
         if count > 0 then
             table.insert(itemlist, { count, disName, item })
-            table.insert(newList, { count, disName, item })
         end
     end
     Vs.list = itemlist
-    list = newList
     sortList()
 end
 
@@ -250,10 +240,10 @@ local function dropItem(id, percentOfStack)
     end
     Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
     if monitor then Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
-    turtle.drop()
+    -- turtle.drop() -- Did we really need to drop here?
+    turtle.select(16)
     repeat
         os.queueEvent('turtle_inventory_ignore')
-        turtle.select(16)
         turtle.suckDown()
         turtle.drop()
     until not next(buffer.list())
