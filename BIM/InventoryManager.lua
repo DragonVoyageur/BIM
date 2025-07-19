@@ -22,7 +22,7 @@ local sClickList = {}
 local scrollIndex = 0
 local selected = {}
 local buffer
-local chests = {}
+local chests = {} --- A list of all chest peripherals in the system
 local monitor = nil
 
 local mainScreen = term.current()
@@ -137,6 +137,22 @@ local function sortItems()
     sortList()
 end
 
+local function pushBufferItemToStorage(chestName, fromSlotIndex, toSlotIndex, itemId)
+    local pushed = buffer.pushItems(chestName, fromSlotIndex, 64, toSlotIndex)
+    if pushed > 0 then
+        -- Update Vs.chests
+        Vs.chests[itemId] = Vs.chests[itemId] or {}
+        table.insert(Vs.chests[itemId], {
+            side = chestName,
+            slot = toSlotIndex,
+            count = pushed,
+            name = itemId
+        })
+    end
+    return pushed
+end
+
+
 local function storeItems()
     while true do
         if buffer then
@@ -149,18 +165,67 @@ local function storeItems()
                     id = os.startTimer(1)
                     local timer = { os.pullEvent() }
                 until timer[2] == id
+
+                -- Drop all items from turtle to buffer
                 for i = 1, 16 do
                     if turtle.getItemCount(i) > 0 then
                         turtle.select(i)
                         turtle.dropDown()
                     end
                 end
-                for i, item in pairs(buffer.list()) do
-                    for _, chest in ipairs(chests) do
-                        if item.count == 0 then break end
-                        buffer.pushItems(peripheral.getName(chest), i)
+
+                -- Get buffer inventory
+                local bufferItems = buffer.list()
+                for slot, item in pairs(bufferItems) do
+                    local itemId = item.name
+                    local itemCount = item.count
+
+                    local chestSlots = Vs.chests[itemId] or {}
+                    local remaining = itemCount
+                    -- Fill non-full stacks
+                    for _, chestSlot in ipairs(chestSlots) do
+                        if remaining <= 0 then break end
+                        local pushed = buffer.pushItems(chestSlot.side, slot, 64, chestSlot.slot)
+                        chestSlot.count = chestSlot.count + pushed
+                        remaining = remaining - pushed
+                    end
+
+                    -- Put remaining items in empty slots
+                    if remaining > 0 then
+                        for _, chest in ipairs(chests) do
+                            local chestName = peripheral.getName(chest)
+                            local chestInv = chest.list()
+
+                            for chestSlotNum = 1, chest.size() do
+                                if not chestInv[chestSlotNum] then
+                                    local pushed = pushBufferItemToStorage(chestName, slot, chestSlotNum, itemId)
+                                    remaining = remaining - pushed
+                                    if remaining <= 0 then break end
+                                end
+                            end
+                            if remaining <= 0 then break end
+                        end
+                    end
+
+                    -- Update Vs.list
+                    local found = false
+                    for _, entry in ipairs(Vs.list) do
+                        if entry[3] == itemId then
+                            entry[1] = entry[1] + itemCount
+                            found = true
+                            break
+                        end
+                    end
+                    if not found then
+                        --! displayName doesn't exist must add with refactor
+                        --! this is leading to items starting with minecraft: until sorting
+                        -- I am leaving this here until the refactor because the result is similar to waiting for the sorting
+                        local disName = item.displayName or itemId
+                        table.insert(Vs.list, { itemCount, disName, itemId })
                     end
                 end
+                filter(Vs.list)
+                Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
                 os.queueEvent('click_start')
             elseif event[1] == 'turtle_inventory_ignore' then
                 os.pullEvent('turtle_inventory_start')
