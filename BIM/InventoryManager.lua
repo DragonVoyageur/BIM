@@ -4,10 +4,10 @@
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
 local sortIndex = 1 -- The index of which sort type is currently being used.
 local listSort = {
-    function(left, right) return left[2] < right[2] end,
-    function(left, right) return left[2] > right[2] end,
-    function(left, right) return left[1] < right[1] end,
-    function(left, right) return left[1] > right[1] end,
+    function(left, right) return left.displayName < right.displayName end,
+    function(left, right) return left.displayName > right.displayName end,
+    function(left, right) return left.count < right.count end,
+    function(left, right) return left.count > right.count end,
 }
 local sortDisplay = {
     "Name " .. string.char(0x1E),
@@ -16,7 +16,7 @@ local sortDisplay = {
     "Amount " .. string.char(0x1F)
 }
 
-local filtered = {} -- {... 4 values}
+local filtered = {} -- Same structure as Vs.list
 local clickList = {}
 local sClickList = {}
 local scrollIndex = 0
@@ -56,7 +56,7 @@ local function filter(fList)
         local out = {}
 
         for _, v in ipairs(fList) do
-            local id = v[3]
+            local id = v.id
             if id:sub(1, #lowerSearchText) == lowerSearchText then
                 table.insert(out, v)
             end
@@ -69,7 +69,7 @@ local function filter(fList)
     local out = {}
 
     for _, v in ipairs(fList) do
-        local name = v[2]:lower()
+        local name = v.displayName:lower()
         if name:find(lowerSearchText, 1, true) then
             table.insert(out, v)
         end
@@ -130,7 +130,7 @@ local function sortItems()
             end
         end
         if count > 0 then
-            table.insert(itemlist, { count, disName, item })
+            table.insert(itemlist, { count = count, displayName = disName, id = item })
         end
     end
     Vs.list = itemlist
@@ -151,7 +151,6 @@ local function pushBufferItemToStorage(chestName, fromSlotIndex, toSlotIndex, it
     end
     return pushed
 end
-
 
 local function storeItems()
     while true do
@@ -210,8 +209,8 @@ local function storeItems()
                     -- Update Vs.list
                     local found = false
                     for _, entry in ipairs(Vs.list) do
-                        if entry[3] == itemId then
-                            entry[1] = entry[1] + itemCount
+                        if entry.id == itemId then
+                            entry.count = entry.count + itemCount
                             found = true
                             break
                         end
@@ -221,7 +220,7 @@ local function storeItems()
                         --! this is leading to items starting with minecraft: until sorting
                         -- I am leaving this here until the refactor because the result is similar to waiting for the sorting
                         local disName = item.displayName or itemId
-                        table.insert(Vs.list, { itemCount, disName, itemId })
+                        table.insert(Vs.list, { count = itemCount, displayName = disName, id = itemId })
                     end
                 end
                 filter(Vs.list)
@@ -276,7 +275,7 @@ end
 ---@param percentOfStack number 0-1 how much of a stack to pull
 local function dropItem(id, percentOfStack)
     if id == nil or filtered[id] == nil then return nil end
-    local itemName = filtered[id][3]
+    local itemName = filtered[id].id
     local chestData = Vs.chests[itemName]
     if not chestData or #chestData == 0 then return nil end
 
@@ -303,14 +302,14 @@ local function dropItem(id, percentOfStack)
             -- Remove from Vs.list to prevent items from re-appearing when sorting
             -- todo O(n) check if this can ba faster; may not need to after refactoring to stop need for sorting
             for l = #Vs.list, 1, -1 do
-                if Vs.list[l][1] == 0 then
+                if Vs.list[l].count == 0 then
                     table.remove(Vs.list, l)
                 end
             end
 
             -- remove from filtered list to instantly disappear from list instead of showing item with 0 count
-            filtered[id][1] = filtered[id][1] - transferred
-            if filtered[id][1] == 0 then
+            filtered[id].count = filtered[id].count - transferred
+            if filtered[id].count == 0 then
                 table.remove(filtered, id)
             end
 
@@ -386,7 +385,6 @@ local function loadEnv()
     sortIndex = settings.get(Vs.name .. ".sortIndex") or 1
     settings.set(Vs.name .. ".sortIndex", sortIndex)
     settings.save(settingPath)
-
 end
 
 local function loopEnv()

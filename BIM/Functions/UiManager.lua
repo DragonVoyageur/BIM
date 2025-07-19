@@ -12,10 +12,12 @@ local function thousand(count)
     end
     return string.format('%03i%s', c, metric[i])
 end
+
 local function tableExplore(tb)
     if type(tb) == 'table' then
-        local count = tb[1] or 0
-        local name = tb[2] or ""
+
+        local count = tb.count or 0
+        local name = tb.displayName or ""
         return thousand(count) .. ' ' .. tostring(name)
     elseif type(tb) == 'number' then
         return thousand(tb) .. ' '
@@ -38,26 +40,28 @@ local function valToIndes(list, selections)
     end
     return index
 end
+
 local function resizeBar(bar, scrollIndex, screen, list, columns)
     local screenSize = { screen.getSize() }
     local barSize = { bar.getSize() }
     local bcolor = colors.toBlit(bar.getBackgroundColor())
     local tcolor = colors.toBlit(bar.getTextColor())
-    local lenght = math.max(math.min((barSize[2] / (#list / columns)) * barSize[2], barSize[2]), 1)
-    local max = math.ceil(barSize[2] - lenght)
+    local length = math.max(math.min((barSize[2] / (#list / columns)) * barSize[2], barSize[2]), 1)
+    local max = math.ceil(barSize[2] - length)
     local percent = (scrollIndex / ((#list / columns) - screenSize[2]))
     if percent ~= percent then percent = 0 end
     local cal = percent < 0.5 and math.ceil or math.floor
     local offset = cal(math.min(math.max(percent * max, 0), max))
     for i = 1, barSize[2], 1 do
         bar.setCursorPos(1, i)
-        if i > offset and i <= lenght + offset then
+        if i > offset and i <= length + offset then
             bar.blit(' ', tcolor, tcolor)
         else
             bar.blit(' ', bcolor, bcolor)
         end
     end
 end
+
 local function uiPrint(list, selected, scrollIndex, bar, screen, columns)
     if bar ~= nil then
         resizeBar(bar, scrollIndex, screen, list, columns)

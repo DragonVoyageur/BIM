@@ -23,7 +23,7 @@ end
 
 return {
     chests = chests, -- key of an itemname, value example {['side']=peripheral.getName(chest),['slot']=j,['count']=item.count,['name']=name}
-    list = itemlist, -- list of items in system { {count:int, name:string, id:string} }
+    list = itemlist, -- list of items in system { {count:int, displayName:string, id:string} }
     name = projectName,
     setEnv = setEnv,
     getEnv = getEnv,
