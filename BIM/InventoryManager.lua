@@ -271,7 +271,8 @@ local function storeItems()
                     end
                 end
                 filter(Vs.list)
-                Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
+                sortList()
+                clickList = Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
                 if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 os.queueEvent('click_start')
             elseif event[1] == 'turtle_inventory_ignore' then
@@ -347,18 +348,17 @@ local function dropItem(id, percentOfStack)
             local transferred = buffer.pullItems(data.side, data.slot, amount)
 
             -- Remove from Vs.list to prevent items from re-appearing when sorting
-            -- todo O(n) check if this can ba faster; may not need to after refactoring to stop need for sorting
+            -- todo O(n) check if this can be faster; may not need to after refactoring to stop need for sorting
             -- If I only update when the #Vs.chests[item] == 0 then I won't
             for l = #Vs.list, 1, -1 do
-                if Vs.list[l].count == 0 then
-                    table.remove(Vs.list, l)
+                local listItem = Vs.list[l]
+                if listItem.name == itemName then
+                    listItem.count = listItem.count - transferred
                 end
-            end
-
-            -- remove from filtered list to instantly disappear from list instead of showing item with 0 count
-            filtered[id].count = filtered[id].count - transferred
-            if filtered[id].count == 0 then
-                table.remove(filtered, id)
+                if listItem.count == 0 then
+                    table.remove(Vs.list, l)
+                    table.remove(filtered, id) -- instantly remove from viewed list if none left
+                end
             end
 
             -- update variable storage chests
@@ -373,6 +373,7 @@ local function dropItem(id, percentOfStack)
             end
         end
     end
+
     Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
     if monitor then Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
     turtle.select(16)
