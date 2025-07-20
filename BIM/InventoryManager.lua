@@ -1,4 +1,5 @@
 --todo figure out why this sometimes swaps some items with the same count when searching and hitting shift
+--todo consider making clicked item bg flash instead of stay selected indefinitely
 
 --#region Locals--
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
@@ -270,6 +271,7 @@ local function storeItems()
                 end
                 filter(Vs.list)
                 Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
+                if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 os.queueEvent('click_start')
             elseif event[1] == 'turtle_inventory_ignore' then
                 os.pullEvent('turtle_inventory_start')
@@ -345,6 +347,7 @@ local function dropItem(id, percentOfStack)
 
             -- Remove from Vs.list to prevent items from re-appearing when sorting
             -- todo O(n) check if this can ba faster; may not need to after refactoring to stop need for sorting
+            -- If I only update when the #Vs.chests[item] == 0 then I won't
             for l = #Vs.list, 1, -1 do
                 if Vs.list[l].count == 0 then
                     table.remove(Vs.list, l)
@@ -388,7 +391,6 @@ local function loopPrint()
                 if scrollIndex ~= math.min(math.max(scrollIndex + event[2], 0), math.max(math.ceil(#filtered / colAmount) - screenSize[2], 0)) then
                     scrollIndex = scrollIndex + event[2]
                     printScreen()
-                    --todo update monitor when storing/retrieving items
                     if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 end
             elseif event[1] == 'mouse_click' and event[4] >= 2 and event[3] < select(1, term.getSize()) then
