@@ -1,5 +1,5 @@
-local projectName = "BIM"
-local Vs = require ("/" .. projectName .. ".Functions.VariableStorage")
+local Vs
+local function setVs(vsRef) Vs = vsRef end
 
 local metric = { ' ', 'k', 'M', 'G', 'T' }
 local function thousand(count)
@@ -133,4 +133,9 @@ local function uiCreate(parent, x, y, x2, y2, bcolor, tcolor, hasbar, bbcolor, b
     return win, winSize, bar
 end
 
-return { Print = uiPrint, Click = uiClicked, Create = uiCreate }
+return {
+    Print = uiPrint,
+    Click = uiClicked,
+    Create = uiCreate,
+    setVs = setVs
+}
