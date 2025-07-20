@@ -4,8 +4,8 @@
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
 local sortIndex = 1 -- The index of which sort type is currently being used.
 local listSort = {
-    function(left, right) return left.displayName < right.displayName end,
-    function(left, right) return left.displayName > right.displayName end,
+    function(left, right) return Vs.itemDetailsMap[left.id].displayName < Vs.itemDetailsMap[right.id].displayName end,
+    function(left, right) return Vs.itemDetailsMap[left.id].displayName > Vs.itemDetailsMap[right.id].displayName end,
     function(left, right) return left.count < right.count end,
     function(left, right) return left.count > right.count end,
 }
@@ -42,22 +42,51 @@ local searchText = ""
 local colAmount
 --#endregion Locals--
 
+--- Call when adding a new item or on first construction
+local function saveTable(table, where)
+    local file = fs.open(where, "w")
+    assert(file, "Unable to open ".. where .. " for writing.")
+
+    file.write("return " .. textutils.serialise(table))
+    file:close()
+end
+
 local function trim(s) return s:match("^%s*(.-)%s*$") end
 
+local function setItemDetail(name, chest, slot, suppressSave)
+    if not Vs.itemDetailsMap[name] then
+        local detail = chest.getItemDetail(slot)
+        if detail and detail.displayName then
+            -- details.itemGroups is apparently deprecated and the wiki says it's no longer available. but I see it in mc 1.21.7
+            Vs.itemDetailsMap[name] = {
+                tags = detail.tags,
+                maxCount = detail.maxCount,
+                displayName = detail.displayName
+            }
+            if not suppressSave then
+                saveTable(Vs.itemDetailsMap, Vs.itemDetailsMapLocation)
+            end
+            return true
+        end
+    end
+    return false
+end
+
+--#region Functions--
 local function filter(fList)
     if #searchText < 1 then
         filtered = fList
         return
     end
 
+    --todo work with item tags using "#"
     local trimmedSearch = trim(searchText)
     if trimmedSearch:sub(1, 1) == "@" then -- search by mod
         local lowerSearchText = trimmedSearch:sub(2) -- exclude '@'
         local out = {}
 
         for _, v in ipairs(fList) do
-            local id = v.id
-            if id:sub(1, #lowerSearchText) == lowerSearchText then
+            if v.id:sub(1, #lowerSearchText) == lowerSearchText then
                 table.insert(out, v)
             end
         end
@@ -69,7 +98,7 @@ local function filter(fList)
     local out = {}
 
     for _, v in ipairs(fList) do
-        local name = v.displayName:lower()
+        local name = Vs.itemDetailsMap[v.id].displayName:lower()
         if name:find(lowerSearchText, 1, true) then
             table.insert(out, v)
         end
@@ -83,54 +112,74 @@ local function sortList()
     table.sort(filtered, listSort[sortIndex])
 end
 
---#region Functions--
 ---Maps out where items are
-local function countChests()
+local function scanStorage()
     local chestlist = {}
-    for i, chest in ipairs(chests) do
+    local foundNewItemType = false
+    local itemList = {}
+    for _, chest in ipairs(chests) do
         local items = chest.list()
-        for j, item in pairs(items) do
-            local name = item.name
-            if chestlist[name] == nil then chestlist[name] = {} end
-            table.insert(
-                chestlist[name],
+        for slot, item in pairs(items) do
+            local name = item.name -- i.e. minecraft:bone
+            chestlist[name] = chestlist[name] or {}
+
+            if setItemDetail(name, chest, slot, true) then
+                foundNewItemType = true
+            end
+
+            table.insert(chestlist[name],
                 {
                     side = peripheral.getName(chest),
-                    slot = j,
+                    slot = slot,
                     count = item.count,
-                    name = name
+                    name = name, -- same as id
                 }
             )
+
+            itemList[name] = itemList[name] or 0
+            itemList[name] = itemList[name] + item.count
         end
     end
+
+    local newItemList = {}
+    for name, count in pairs(itemList) do
+        table.insert(newItemList, {id = name, count = count})
+    end
+    Vs.list = newItemList
+    filtered = newItemList
+    sortList()
+
     Vs.chests = chestlist
+    if foundNewItemType then
+        saveTable(Vs.itemDetailsMap, Vs.itemDetailsMapLocation)
+    end
+
 end
 
+-- this is now unused, but I'm keeping it in for the moment
+-- todo refactor this to only sort items if it would result in fewer slots used
 local function sortItems()
     local itemlist = {}
     for item, data in pairs(Vs.chests) do
         local count = 0
-        local disName = nil
         for i, slot1 in ipairs(data) do
             if slot1.count ~= 0 then
                 local chest = peripheral.wrap(slot1.side)
                 assert(chest, "No chest found.")
-                if not disName then
-                    local detail = chest.getItemDetail(slot1.slot)
-                    if detail and detail.displayName then
-                        disName = detail.displayName
-                    end
-                end
+                setItemDetail(item, chest, slot1.slot)
                 for j = i + 1, #data, 1 do
-                    local transferd = chest.pullItems(data[j].side, data[j].slot, data[j].count, slot1.slot)
-                    Vs.chests[item][j].count = data[j].count - transferd
-                    Vs.chests[item][i].count = slot1.count + transferd
+                    local transferred = chest.pullItems(data[j].side, data[j].slot, data[j].count, slot1.slot)
+                    Vs.chests[item][j].count = data[j].count - transferred
+                    Vs.chests[item][i].count = slot1.count + transferred
                 end
                 count = count + slot1.count
             end
         end
         if count > 0 then
-            table.insert(itemlist, { count = count, displayName = disName, id = item })
+            table.insert(itemlist, {
+                count = count,
+                id = item
+            })
         end
     end
     Vs.list = itemlist
@@ -216,11 +265,7 @@ local function storeItems()
                         end
                     end
                     if not found then
-                        --! displayName doesn't exist must add with refactor
-                        --! this is leading to items starting with minecraft: until sorting
-                        -- I am leaving this here until the refactor because the result is similar to waiting for the sorting
-                        local disName = item.displayName or itemId
-                        table.insert(Vs.list, { count = itemCount, displayName = disName, id = itemId })
+                        table.insert(Vs.list, { count = itemCount, id = itemId })
                     end
                 end
                 filter(Vs.list)
@@ -244,11 +289,11 @@ local function printScreen()
     end
 end
 
+--todo consider if this is even needed now; At least if it needs to loop
 local function loopSort()
     while true do
         if buffer then
-            countChests()
-            sortItems()
+            -- sortItems()
 
             scrollIndex = math.min(
                 math.max(scrollIndex, 0),
@@ -256,8 +301,10 @@ local function loopSort()
             )
 
             printScreen()
-            if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
-            sleep(10)
+            if monitor then
+                sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount)
+            end
+            sleep(1000)
         else
             screen.clear()
             screen.setCursorPos(1, 1)
@@ -283,10 +330,7 @@ local function dropItem(id, percentOfStack)
     local maxCount = 64
     local chest = peripheral.wrap(chestData[1].side)
     if chest then
-        local detail = chest.getItemDetail(chestData[1].slot)
-        if detail and detail.maxCount then
-            maxCount = detail.maxCount
-        end
+        setItemDetail(itemName, chest, chestData[1].slot)
     end
 
     local amountToPull = math.ceil(maxCount * percentOfStack)
@@ -344,6 +388,7 @@ local function loopPrint()
                 if scrollIndex ~= math.min(math.max(scrollIndex + event[2], 0), math.max(math.ceil(#filtered / colAmount) - screenSize[2], 0)) then
                     scrollIndex = scrollIndex + event[2]
                     printScreen()
+                    --todo update monitor when storing/retrieving items
                     if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 end
             elseif event[1] == 'mouse_click' and event[4] >= 2 and event[3] < select(1, term.getSize()) then
@@ -377,7 +422,7 @@ local function loadEnv()
     settings.load(settingPath)
     local otherSettingNames = { "sortIndex" }
     local otherOptions = {
-        { description = ' The last used sort type.', default = 1, type = 'number' }
+        { description = " The last used sort type.", default = 1, type = "number" },
     }
     for i, name in ipairs(otherSettingNames) do
         settings.define(Vs.name .. '.' .. name, otherOptions[i])
@@ -385,6 +430,8 @@ local function loadEnv()
     sortIndex = settings.get(Vs.name .. ".sortIndex") or 1
     settings.set(Vs.name .. ".sortIndex", sortIndex)
     settings.save(settingPath)
+
+    scanStorage()
 end
 
 local function loopEnv()

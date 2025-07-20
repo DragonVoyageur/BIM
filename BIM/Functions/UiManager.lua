@@ -1,3 +1,6 @@
+local projectName = "BIM"
+local Vs = require ("/" .. projectName .. ".Functions.VariableStorage")
+
 local metric = { ' ', 'k', 'M', 'G', 'T' }
 local function thousand(count)
     local c = count
@@ -15,9 +18,8 @@ end
 
 local function tableExplore(tb)
     if type(tb) == 'table' then
-
         local count = tb.count or 0
-        local name = tb.displayName or ""
+        local name = Vs.itemDetailsMap[tb.id].displayName
         return thousand(count) .. ' ' .. tostring(name)
     elseif type(tb) == 'number' then
         return thousand(tb) .. ' '
