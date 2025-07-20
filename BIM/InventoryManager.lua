@@ -228,6 +228,7 @@ local function storeItems()
                 for slot, item in pairs(bufferItems) do
                     local itemId = item.name
                     local itemCount = item.count
+                    setItemDetail(itemId, buffer, slot)
 
                     local chestSlots = Vs.chests[itemId] or {}
                     local remaining = itemCount
