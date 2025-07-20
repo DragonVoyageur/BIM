@@ -291,6 +291,9 @@ local function printScreen()
         searchBar.setCursorBlink(true)
         searchBar.setCursorPos(math.min(#searchText, searchLength) + 1, 1)
     end
+    if monitor then
+        sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount)
+    end
 end
 
 --todo consider if this is even needed now; At least if it needs to loop
@@ -305,9 +308,6 @@ local function loopSort()
             )
 
             printScreen()
-            if monitor then
-                sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount)
-            end
             sleep(1000)
         else
             screen.clear()
@@ -393,7 +393,6 @@ local function loopPrint()
                 if scrollIndex ~= math.min(math.max(scrollIndex + event[2], 0), math.max(math.ceil(#filtered / colAmount) - screenSize[2], 0)) then
                     scrollIndex = scrollIndex + event[2]
                     printScreen()
-                    if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
                 end
             elseif event[1] == 'mouse_click' and event[4] >= 2 and event[3] < select(1, term.getSize()) then
                 local dropAmount = { 1, 0.5, 0.01 }
@@ -445,7 +444,6 @@ local function loopEnv()
         selected = {}
         scrollIndex = 0
         printScreen()
-        if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
         os.queueEvent('Updated_Env')
     end
 end
