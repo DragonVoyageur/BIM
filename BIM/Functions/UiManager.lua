@@ -19,7 +19,7 @@ end
 local function tableExplore(tb)
     if type(tb) == 'table' then
         local count = tb.count or 0
-        local name = Vs.itemDetailsMap[tb.id].displayName
+        local name = Vs.itemDetailsMap[tb.name].displayName
         return thousand(count) .. ' ' .. tostring(name)
     elseif type(tb) == 'number' then
         return thousand(tb) .. ' '

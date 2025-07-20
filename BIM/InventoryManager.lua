@@ -5,8 +5,8 @@
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
 local sortIndex = 1 -- The index of which sort type is currently being used.
 local listSort = {
-    function(left, right) return Vs.itemDetailsMap[left.id].displayName < Vs.itemDetailsMap[right.id].displayName end,
-    function(left, right) return Vs.itemDetailsMap[left.id].displayName > Vs.itemDetailsMap[right.id].displayName end,
+    function(left, right) return Vs.itemDetailsMap[left.name].displayName < Vs.itemDetailsMap[right.name].displayName end,
+    function(left, right) return Vs.itemDetailsMap[left.name].displayName > Vs.itemDetailsMap[right.name].displayName end,
     function(left, right) return left.count < right.count end,
     function(left, right) return left.count > right.count end,
 }
@@ -87,7 +87,7 @@ local function filter(fList)
         local out = {}
 
         for _, v in ipairs(fList) do
-            if v.id:sub(1, #lowerSearchText) == lowerSearchText then
+            if v.name:sub(1, #lowerSearchText) == lowerSearchText then
                 table.insert(out, v)
             end
         end
@@ -99,7 +99,7 @@ local function filter(fList)
     local out = {}
 
     for _, v in ipairs(fList) do
-        local name = Vs.itemDetailsMap[v.id].displayName:lower()
+        local name = Vs.itemDetailsMap[v.name].displayName:lower()
         if name:find(lowerSearchText, 1, true) then
             table.insert(out, v)
         end
@@ -144,7 +144,7 @@ local function scanStorage()
 
     local newItemList = {}
     for name, count in pairs(itemList) do
-        table.insert(newItemList, {id = name, count = count})
+        table.insert(newItemList, {name = name, count = count})
     end
     Vs.list = newItemList
     filtered = newItemList
@@ -179,7 +179,7 @@ local function sortItems()
         if count > 0 then
             table.insert(itemlist, {
                 count = count,
-                id = item
+                name = item
             })
         end
     end
@@ -259,14 +259,14 @@ local function storeItems()
                     -- Update Vs.list
                     local found = false
                     for _, entry in ipairs(Vs.list) do
-                        if entry.id == itemId then
+                        if entry.name == itemId then
                             entry.count = entry.count + itemCount
                             found = true
                             break
                         end
                     end
                     if not found then
-                        table.insert(Vs.list, { count = itemCount, id = itemId })
+                        table.insert(Vs.list, { count = itemCount, name = itemId })
                     end
                 end
                 filter(Vs.list)
@@ -324,7 +324,7 @@ end
 ---@param percentOfStack number 0-1 how much of a stack to pull
 local function dropItem(id, percentOfStack)
     if id == nil or filtered[id] == nil then return nil end
-    local itemName = filtered[id].id
+    local itemName = filtered[id].name
     local chestData = Vs.chests[itemName]
     if not chestData or #chestData == 0 then return nil end
 
