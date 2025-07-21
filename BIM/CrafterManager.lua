@@ -133,6 +133,7 @@ local function craftOne()
     workbench.craft()
     os.queueEvent('turtle_inventory_ignore')
     turtle.drop()
+    os.queueEvent('turtle_inventory_start')
     Vs.chests = list
     return false
 end
@@ -197,8 +198,9 @@ local function craftStack()
         end
     end
     workbench.craft()
-    os.queueEvent('turtle_inventory_ignore')
+    os.queueEvent("turtle_inventory_ignore")
     turtle.drop()
+    os.queueEvent("turtle_inventory_start")
     Vs.chests = list
     return false
 end
