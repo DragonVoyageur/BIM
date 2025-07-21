@@ -1,4 +1,3 @@
---todo figure out why this sometimes swaps some items with the same count when searching and hitting shift
 --todo consider making clicked item bg flash instead of stay selected indefinitely
 
 --#region Locals--
@@ -309,7 +308,6 @@ local function printScreen()
     end
 end
 
---todo consider if this is even needed now; At least if it needs to loop
 local function loopSort()
     while true do
         if buffer then

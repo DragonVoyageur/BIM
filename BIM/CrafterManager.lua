@@ -1,3 +1,5 @@
+--todo add central item handler; this doesn't update item count
+
 --#region Locals--
 local workbench = peripheral.find("workbench")
 local menuError = false
@@ -23,7 +25,7 @@ local workbenchInputSlots = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
 --#region Function--
 local function storeFile(name, value)
     if name == nil then
-        printError('No file name given')
+        printError("No file name given")
         return nil
     end
     local file = fs.open(name, 'w')
@@ -36,27 +38,39 @@ local function storeFile(name, value)
 end
 
 local function readRecipe()
-    local recipe = { nil, {} }
     if turtle.getItemDetail(16) == nil then return true end
-    recipe[1] = turtle.getItemDetail(16, true)
+    local recipe = {}
+    local filename = turtle.getItemDetail(16, true).displayName
+    local inputEmpty = true
     for _, v in ipairs(workbenchInputSlots) do
-        recipe[2][v] = turtle.getItemDetail(v, true)
+        if turtle.getItemCount(v) > 0 then
+            inputEmpty = false
+            local item = turtle.getItemDetail(v, true)
+            assert(item, "Failed to getItemDetail")
+
+            local itemData = {
+                name = item.name,
+                count = item.count,
+                maxCount = item.maxCount
+            }
+            recipe[v] = itemData
+        end
     end
-    if #recipe[2] < 1 then return true end
-    storeFile(Vs.name .. '/Recipes/' .. recipe[1].displayName, recipe)
+    if inputEmpty then return true end
+    storeFile(Vs.name .. "/Recipes/" .. filename, recipe)
     selected = 0
-    recipes = fs.list(Vs.name .. '/Recipes')
+    recipes = fs.list(Vs.name .. "/Recipes")
     clickList = Um.Print(recipes, selected, scrollIndex, scrollBar, screen, colAmount)
     return false
 end
 
 local function loadFile(name)
     if name == nil then
-        printError('No file name given')
+        printError("No file name given")
         return nil
     end
     if not fs.exists(name) then
-        printError(name .. ' file not found')
+        printError(name .. " file not found")
         return nil
     end
 
@@ -76,10 +90,10 @@ end
 
 local function deleteRecipe()
     if not selected then return true end
-    if not fs.exists(Vs.name .. '/Recipes/' .. selected) then return true end
-    fs.delete(Vs.name .. '/Recipes/' .. selected)
+    if not fs.exists(Vs.name .. "/Recipes/" .. selected) then return true end
+    fs.delete(Vs.name .. "/Recipes/" .. selected)
     selected = -1
-    recipes = fs.list(Vs.name .. '/Recipes')
+    recipes = fs.list(Vs.name .. "/Recipes")
     clickList = Um.Print(recipes, selected, scrollIndex, scrollBar, screen, colAmount)
     return false
 end
@@ -87,13 +101,13 @@ end
 local function craftOne()
     if not workbench then return true end
     if not selected then return true end
-    if not fs.exists(Vs.name .. '/Recipes/' .. selected) then return true end
-    local recipe = loadFile(Vs.name .. '/Recipes/' .. selected)
+    if not fs.exists(Vs.name .. "/Recipes/" .. selected) then return true end
+    local recipe = loadFile(Vs.name .. "/Recipes/" .. selected)
     local list = Vs.chests
     if recipe == nil or list == nil then return true end
     --validate and select items
     local temp = {}
-    for i, item in pairs(recipe[2]) do
+    for i, item in pairs(recipe) do
         local counter = item.count
         local temp2 = {}
         if list[item.name] == nil then return true end
@@ -123,7 +137,7 @@ local function craftOne()
     for _, v in ipairs(workbenchInputSlots) do
         if temp[v] ~= nil then
             for _, item in ipairs(temp[v]) do
-                os.queueEvent('turtle_inventory_ignore')
+                os.queueEvent("turtle_inventory_ignore")
                 buffer.pullItems(item.side, item.slot, item.count)
                 turtle.select(v)
                 turtle.suckDown()
@@ -131,9 +145,9 @@ local function craftOne()
         end
     end
     workbench.craft()
-    os.queueEvent('turtle_inventory_ignore')
+    os.queueEvent("turtle_inventory_ignore")
     turtle.drop()
-    os.queueEvent('turtle_inventory_start')
+    os.queueEvent("turtle_inventory_start")
     Vs.chests = list
     return false
 end
@@ -141,15 +155,15 @@ end
 local function craftStack()
     if not workbench then return true end
     if not selected then return true end
-    if not fs.exists(Vs.name .. '/Recipes/' .. selected) then return true end
-    local recipe = loadFile(Vs.name .. '/Recipes/' .. selected)
+    if not fs.exists(Vs.name .. "/Recipes/" .. selected) then return true end
+    local recipe = loadFile(Vs.name .. "/Recipes/" .. selected)
     local list = Vs.chests
     if recipe == nil or list == nil then return true end
     --validate and select items
     local temp = {}
 
     local multiplier = math.floor(recipe[1].maxCount / recipe[1].count)
-    for _, item in pairs(recipe[2]) do
+    for _, item in pairs(recipe) do
         local tm = math.floor(item.maxCount / item.count)
         if tm < multiplier then
             multiplier = tm
@@ -157,7 +171,7 @@ local function craftStack()
     end
     repeat
         local counter = 1
-        for i, item in pairs(recipe[2]) do
+        for i, item in pairs(recipe) do
             if list[item.name] == nil then return true end
             counter = item.count * multiplier
             local temp2 = {}
@@ -191,7 +205,7 @@ local function craftStack()
         if temp[v] ~= nil then
             for _, item in ipairs(temp[v]) do
                 buffer.pullItems(item.side, item.slot, item.count, v)
-                os.queueEvent('turtle_inventory_ignore')
+                os.queueEvent("turtle_inventory_ignore")
                 turtle.select(v)
                 turtle.suckDown()
             end
@@ -211,7 +225,7 @@ local function menu()
         recipeMenu.write("Requires Crafty Turtle")
         return
     end
-    local buttons = { 'Craft one', 'Craft stack', 'Save', 'Delete' }
+    local buttons = { "Craft one", "Craft stack", "Save", "Delete" }
     local size = { recipeMenu.getSize() }
     local padding = size[1]
     for _, text in ipairs(buttons) do
@@ -254,30 +268,30 @@ end
 local function loopPrint()
     while true do
         local event = { os.pullEvent() }
-        if event[1] == 'mouse_scroll' and scrollIndex ~= math.min(math.max(scrollIndex + event[2], 0), math.max(math.ceil(#recipes / colAmount) - screenSize[2], 0)) then
+        if event[1] == "mouse_scroll" and scrollIndex ~= math.min(math.max(scrollIndex + event[2], 0), math.max(math.ceil(#recipes / colAmount) - screenSize[2], 0)) then
             scrollIndex = scrollIndex + event[2]
             clickList = Um.Print(recipes, selected, scrollIndex, scrollBar, screen, colAmount)
-        elseif event[1] == 'mouse_click' then
+        elseif event[1] == "mouse_click" then
             if event[4] > screenSize[2] then
                 clickedMenu(event[3])
             else
                 selected = recipes[Um.Click(clickList, event[3], event[4])]
                 Um.Print(recipes, selected, scrollIndex, scrollBar, screen, colAmount)
             end
-        elseif event[1] == 'click_ignore' then
-            os.pullEvent('click_start')
+        elseif event[1] == "click_ignore" then
+            os.pullEvent("click_start")
         end
     end
 end
 
 local function loadEnv()
-    buffer = peripheral.wrap(Vs.getEnv('Buffer'))
-    colAmount = tonumber(Vs.getEnv('Columns'))
+    buffer = peripheral.wrap(Vs.getEnv("Buffer"))
+    colAmount = tonumber(Vs.getEnv("Columns"))
 end
 
 local function loopEnv()
     while true do
-        os.pullEvent('Update_Env')
+        os.pullEvent("Update_Env")
         loadEnv()
         selected = -1
         scrollIndex = 0
@@ -298,13 +312,13 @@ recipeMenu.setBackgroundColor(colors.lightGray)
 screen.clear()
 scrollBar.clear()
 recipeMenu.clear()
-if not fs.exists(Vs.name .. '/Recipes/') then
-    fs.makeDir(Vs.name .. '/Recipes')
+if not fs.exists(Vs.name .. "/Recipes/") then
+    fs.makeDir(Vs.name .. "/Recipes")
 end
 
 menu()
 screen.setCursorPos(1, 1)
-recipes = fs.list(Vs.name .. '/Recipes')
+recipes = fs.list(Vs.name .. "/Recipes")
 clickList = Um.Print(recipes, selected, scrollIndex, scrollBar, screen, colAmount)
 
 local success, result = pcall(function()
