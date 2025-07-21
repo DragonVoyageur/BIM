@@ -157,34 +157,47 @@ local function scanStorage()
 
 end
 
--- this is now unused, but I'm keeping it in for the moment
--- todo refactor this to only sort items if it would result in fewer slots used
 local function sortItems()
-    local itemlist = {}
-    for item, data in pairs(Vs.chests) do
-        local count = 0
-        for i, slot1 in ipairs(data) do
-            if slot1.count ~= 0 then
-                local chest = peripheral.wrap(slot1.side)
-                assert(chest, "No chest found.")
-                setItemDetail(item, chest, slot1.slot)
-                for j = i + 1, #data, 1 do
-                    local transferred = chest.pullItems(data[j].side, data[j].slot, data[j].count, slot1.slot)
-                    Vs.chests[item][j].count = data[j].count - transferred
-                    Vs.chests[item][i].count = slot1.count + transferred
+    for _, item in ipairs(Vs.list) do
+        local maxCount = Vs.itemDetailsMap[item.name].maxCount
+        local maxSlotsNeeded = math.ceil(item.count / maxCount)
+        local itemChests = Vs.chests[item.name]
+        if #itemChests > maxSlotsNeeded then
+            -- Make a copy of itemChests indices to avoid issues when removing
+            local frontChest = 1
+            while frontChest <= #itemChests do
+                local frontSlotData = itemChests[frontChest]
+                if frontSlotData.count < maxCount then
+                    local frontChestPeripheral = peripheral.wrap(frontSlotData.side)
+                    assert(frontChestPeripheral, "Peripheral not found.  Please report bug.")
+
+                    -- Go from last chest with item and move it to front
+                    for backChest = #itemChests, frontChest + 1, -1 do
+                        local backSlotData = itemChests[backChest]
+                        local backSide = backSlotData.side
+                        local transferred = frontChestPeripheral.pullItems(
+                            backSide,
+                            backSlotData.slot,
+                            64,
+                            frontSlotData.slot
+                        )
+                        backSlotData.count = backSlotData.count - transferred
+                        frontSlotData.count = frontSlotData.count + transferred
+                        if backSlotData.count <= 0 then
+                            table.remove(itemChests, backChest)
+                        end
+                        if frontSlotData.count == maxCount then
+                            break
+                        end
+                    end
                 end
-                count = count + slot1.count
+                -- Only increment if we didn't remove the current frontChest
+                if frontSlotData.count == maxCount or frontChest == #itemChests then
+                    frontChest = frontChest + 1
+                end
             end
         end
-        if count > 0 then
-            table.insert(itemlist, {
-                count = count,
-                name = item
-            })
-        end
     end
-    Vs.list = itemlist
-    sortList()
 end
 
 local function pushBufferItemToStorage(chestName, fromSlotIndex, toSlotIndex, itemId)
@@ -300,7 +313,7 @@ end
 local function loopSort()
     while true do
         if buffer then
-            -- sortItems()
+            sortItems()
 
             scrollIndex = math.min(
                 math.max(scrollIndex, 0),
