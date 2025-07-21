@@ -4,12 +4,12 @@
 --#region Locals--
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
 local sortIndex = 1 -- The index of which sort type is currently being used.
-local listSort = {
-    function(left, right) return Vs.itemDetailsMap[left.name].displayName < Vs.itemDetailsMap[right.name].displayName end,
-    function(left, right) return Vs.itemDetailsMap[left.name].displayName > Vs.itemDetailsMap[right.name].displayName end,
-    function(left, right) return left.count < right.count end,
-    function(left, right) return left.count > right.count end,
-}
+local listSort = {}
+listSort[1] = function(left, right) return Vs.itemDetailsMap[left.name].displayName < Vs.itemDetailsMap[right.name].displayName end
+listSort[2] = function(left, right) return Vs.itemDetailsMap[left.name].displayName > Vs.itemDetailsMap[right.name].displayName end
+listSort[3] = function(left, right) return left.count == right.count and listSort[1](left, right) or left.count < right.count end
+listSort[4] = function(left, right) return left.count == right.count and listSort[1](left, right) or left.count > right.count end
+
 local sortDisplay = {
     "Name " .. string.char(0x1E),
     "Name " .. string.char(0x1F),
