@@ -88,6 +88,18 @@ local function sortList()
     table.sort(filtered, listSort[sortIndex])
 end
 
+local function printScreen()
+    searchBar.setCursorBlink(false)
+    clickList = Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
+    if searching then
+        searchBar.setCursorBlink(true)
+        searchBar.setCursorPos(math.min(#searchText, searchLength) + 1, 1)
+    end
+    if monitor then
+        sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount)
+    end
+end
+
 local function storeItems()
     while true do
         if buffer then
@@ -112,8 +124,7 @@ local function storeItems()
                 Storage:storeBuffer()
                 filter(Storage.list)
                 sortList()
-                clickList = Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
-                if monitor then sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
+                printScreen()
                 os.queueEvent('click_start')
             elseif event[1] == 'turtle_inventory_ignore' then
                 os.pullEvent('turtle_inventory_start')
@@ -121,18 +132,6 @@ local function storeItems()
         else
             os.pullEvent('Updated_Env')
         end
-    end
-end
-
-local function printScreen()
-    searchBar.setCursorBlink(false)
-    clickList = Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
-    if searching then
-        searchBar.setCursorBlink(true)
-        searchBar.setCursorPos(math.min(#searchText, searchLength) + 1, 1)
-    end
-    if monitor then
-        sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount)
     end
 end
 
