@@ -174,7 +174,7 @@ function SS:retrieveItem(itemName, percentOfStack)
     if not chestData or #chestData == 0 then return false end
 
     -- Cache maxCount
-    local maxCount = 64
+    local maxCount = Vs.itemDetailsMap[itemName].maxCount
     local chest = peripheral.wrap(chestData[1].side)
     if chest then
         Vs.setItemDetail(itemName, chest, chestData[1].slot)
