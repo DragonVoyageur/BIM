@@ -422,6 +422,16 @@ end
 local function loadEnv()
     buffer = peripheral.wrap(Vs.getEnv('Buffer'))
     chests = {peripheral.find(Vs.getEnv("Inventories"))}
+    local cardinal = { left = true, right = true, top = true, bottom = true, front = true, back = true }
+
+    for i = #chests, 1, -1 do
+        local chestName = peripheral.getName(chests[i])
+        -- Storage should not include inventories adjacent to turtle or buffer inventory
+        if cardinal[chestName] or chestName == Vs.getEnv("Buffer") then
+            table.remove(chests, i)
+        end
+    end
+
     colAmount = tonumber(Vs.getEnv('Columns'))
 
     monitor = peripheral.wrap(Vs.getEnv('Monitor'))
