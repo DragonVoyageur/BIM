@@ -41,7 +41,7 @@ local function findType(tp)
 end
 
 local function lisVal(id)
-    local switch = {
+    local switch = { -- switch main level of settings
         ['Inventories'] = function()
             valueList = peripheralTypes()
             valueSelected = Vs.getEnv('Inventories')
@@ -93,7 +93,7 @@ end
 local function valClicked(id)
     if menuSelected == nil then return end
     local selection
-    if menuSelected == 'IgnoreInv' then
+    if menuSelected == 'IgnoreInv' then -- id is string peripheral name
         local ignore = Vs.getEnv('IgnoreInv')
         local exist = false
         for i, l in pairs(ignore) do

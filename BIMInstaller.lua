@@ -9,7 +9,8 @@ ToDownload={
       '/BIM/InventoryManager.lua',
       '/BIM/SettingsManager.lua',
       '/BIM/Functions/UiManager.lua',
-      '/BIM/Functions/VariableStorage.lua'
+      '/BIM/Functions/VariableStorage.lua',
+      '/BIM/Functions/StorageSystem.lua'
     }
   }
 }
