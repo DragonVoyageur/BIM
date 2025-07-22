@@ -15,32 +15,6 @@ local cardinal = { left = true, right = true, top = true, bottom = true, front =
 
 --#endregion Locals--
 
---#region Functions--
-local function createEnv()
-    local setVal = { 'inventory', { 'left', 'right', 'top', 'bottom', 'front', 'back' }, 'none', '2', 'none' }
-    for i, name in ipairs(setNames) do
-        settings.set(Vs.name .. '.' .. name, setVal[i])
-    end
-    settings.save(settingPath)
-end
-
-local function loadEnv()
-    local options = {
-        { description = ' Inventory by type to store items', default = 'inventory', type = 'string' },
-        { description = ' Inventories by name to ignore, like the buffer', default = { 'left', 'right', 'top', 'bottom', 'front', 'back' }, type = 'table' },
-        { description = ' The inventory at the bottom that the turtle uses to manage items', default = 'none', type = 'string' },
-        { description = ' Amount of columns to display information', default = '2', type = 'string' },
-        { description = ' Monitor to output display information to', default = 'none', type = 'string' }
-    }
-    local newEnv = {}
-    for i, name in ipairs(setNames) do
-        newEnv[name] = settings.get(Vs.name .. '.' .. name)
-        settings.define(Vs.name .. '.' .. name, options[i])
-    end
-    newEnv['Name'] = Vs.name
-    Vs.setEnv(newEnv)
-end
-
 ---Gathers all types of inventories attached to the network and returns a list of their names.<br>
 ---"inventory" means any inventory is acceptable for attached inventory types
 ---@return table InventoryTypes List of valid Inventory names
@@ -182,11 +156,6 @@ end
 --#endregion Functions--
 
 --#region Main--
-
-if not settings.load(settingPath) then
-    createEnv()
-end
-loadEnv()
 
 local mainScreen = (env.Monitor == 'none' or env.Monitor == nil) and term.current() or peripheral.wrap(env.Monitor)
 if mainScreen == nil then mainScreen = term.current() end

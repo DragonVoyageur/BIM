@@ -554,12 +554,7 @@ end
 
 --#region Main--
 
-
-repeat
-    sleep(0.1)
-until Vs.getEnv() ~= nil
 loadEnv()
-
 
 screen.setCursorPos(1, 1)
 screen.write('Sorting...')
@@ -575,6 +570,7 @@ end)
 if not success then
     term.clear()
     term.setCursorPos(1, 1)
+    term.setTextColor(colors.white)
     print(success)
     print(result)
     print(debug.traceback())
