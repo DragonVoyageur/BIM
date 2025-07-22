@@ -100,28 +100,33 @@ local function printScreen()
     end
 end
 
+local function storeAllFromTurtle()
+    local notEmpty = true
+    while notEmpty do
+        notEmpty = false
+        for i = 1, 16 do
+            if turtle.getItemCount(i) > 0 then
+                notEmpty = true
+                turtle.select(i)
+                if not turtle.dropDown() then
+                    Storage:storeBuffer()
+                end
+            end
+        end
+    end
+
+    Storage:storeBuffer()
+end
+
 local function storeItems()
     while true do
         if buffer then
             local event = { os.pullEvent() }
             if event[1] == 'turtle_inventory' and multishell.getCurrent() == multishell.getFocus() then
                 os.queueEvent('click_ignore')
-                local id = 0
-                repeat
-                    os.cancelTimer(id)
-                    id = os.startTimer(1)
-                    local timer = { os.pullEvent() }
-                until timer[2] == id
 
                 -- Drop all items from turtle to buffer
-                for i = 1, 16 do
-                    if turtle.getItemCount(i) > 0 then
-                        turtle.select(i)
-                        turtle.dropDown()
-                    end
-                end
-
-                Storage:storeBuffer()
+                storeAllFromTurtle()
                 filter(Storage.list)
                 sortList()
                 printScreen()
