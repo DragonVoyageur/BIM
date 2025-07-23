@@ -13,6 +13,13 @@ local scrollIndex = 0
 local setNames = { 'Inventories', 'IgnoreInv', 'Buffer', 'Columns', 'Monitor' }
 local cardinal = { left = true, right = true, top = true, bottom = true, front = true, back = true }
 
+local function clamp(x, min, max)
+    if max < min then max = min end
+    if x < min then return min end
+    if x > max then return max end
+    return x
+end
+
 --#endregion Locals--
 
 ---Gathers all types of inventories attached to the network and returns a list of their names.<br>
@@ -40,7 +47,7 @@ local function findType(tp)
     return list
 end
 
-local function lisVal(id)
+local function listVal(id)
     local switch = { -- switch main level of settings
         ['Inventories'] = function()
             valueList = peripheralTypes()
@@ -133,18 +140,28 @@ local function valClicked(id)
 end
 
 local function loopPrint()
+    local keyscroll = {
+        [keys.getName(keys.up)] = -1,
+        [keys.getName(keys.down)] = 1
+    }
     while true do
         local event = { os.pullEvent() }
         if event[1] == 'mouse_scroll' and scrollIndex ~= math.min(math.max(scrollIndex + event[2], 0), math.max(#valueList - valuesSize[2], 0)) then
             scrollIndex = scrollIndex + event[2]
             valueClick = Um.Print(valueList, Vs.getEnv(setNames[menuSelected]), scrollIndex, barValues, envValues, 1)
+        elseif event[1] == "key" then
+            local validKey = keyscroll[keys.getName(event[2])]
+            if validKey then
+                scrollIndex = clamp(scrollIndex + validKey, 0, #valueList - valuesSize[2])
+                valueClick = Um.Print(valueList, valueSelected, scrollIndex, barValues, envValues, 1)
+            end
         elseif event[1] == 'mouse_click' then
             if event[3] <= menuPos[1] + menuSize[1] + 2 then
                 menuSelected = setNames[Um.Click(menuClick, event[3], event[4])]
                 Um.Print(setNames, menuSelected, 0, nil, envMenu, 1)
                 valueSelected = -1
                 scrollIndex = 0
-                lisVal(menuSelected)
+                listVal(menuSelected)
             else
                 valueSelected = valueList[Um.Click(valueClick, event[3], event[4]) or valueSelected]
                 valClicked(valueSelected)
