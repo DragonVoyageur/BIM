@@ -219,6 +219,14 @@ function SS:retrieveItem(itemName, percentOfStack)
     return true, noMoreItemLeft
 end
 
+function SS:hasNItems(item, n)
+    for _, itemslot in ipairs(self.chests[item]) do
+        n = n - itemslot.count
+        if n <= 0 then return true end
+    end
+    return false
+end
+
 return setmetatable({
     chests = {},
     list = {},

@@ -140,6 +140,29 @@ local function storeItems()
     end
 end
 
+---Grab an item from storage and drop it to the player
+---@param id integer the index that the player clicks
+---@param percentOfStack number 0-1 how much of a stack to pull
+local function dropItem(id, percentOfStack)
+    if id == nil or filtered[id] == nil then return nil end
+    selected = { filtered[id] }
+    local itemName = filtered[id].name
+    local _, droppedLastItem = Storage:retrieveItem(itemName, percentOfStack)
+    if droppedLastItem then
+        table.remove(filtered, id) -- instantly remove from viewed list if none left
+    end
+
+    Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
+    if monitor then Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
+    turtle.select(16)
+    repeat
+        os.queueEvent('turtle_inventory_ignore')
+        turtle.suckDown()
+        turtle.drop()
+    until not next(buffer.list())
+    os.queueEvent('turtle_inventory_start')
+end
+
 local function loopSort()
     while true do
         if buffer then
@@ -164,29 +187,6 @@ local function loopSort()
     end
 end
 
----Grab an item from storage and drop it to the player
----@param id integer the index that the player clicks
----@param percentOfStack number 0-1 how much of a stack to pull
-local function dropItem(id, percentOfStack)
-    if id == nil or filtered[id] == nil then return nil end
-    selected = { filtered[id] }
-    local itemName = filtered[id].name
-    local _, droppedLastItem = Storage:retrieveItem(itemName, percentOfStack)
-    if droppedLastItem then
-        table.remove(filtered, id) -- instantly remove from viewed list if none left
-    end
-
-    Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
-    if monitor then Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
-    turtle.select(16)
-    repeat
-        os.queueEvent('turtle_inventory_ignore')
-        turtle.suckDown()
-        turtle.drop()
-    until not next(buffer.list())
-    os.queueEvent('turtle_inventory_start')
-end
-
 local function loopPrint()
     local keyscroll = {
         [keys.getName(keys.up)] = -1,
@@ -200,7 +200,7 @@ local function loopPrint()
                     scrollIndex = scrollIndex + event[2]
                     printScreen()
                 end
-            elseif event[1] == "key" then
+            -- elseif event[1] == "key" then
                 -- local validKey = keyscroll[keys.getName(event[2])]
                 -- if validKey then
                 --     if scrollIndex ~= math.min(math.max(scrollIndex + validKey, 0), math.max(math.ceil(#filtered / colAmount) - screenSize[2], 0)) then
@@ -313,6 +313,7 @@ local function beginSearch()
             printScreen()
         end
     end
+
     searchBar.setCursorBlink(false)
     searching = false
 end

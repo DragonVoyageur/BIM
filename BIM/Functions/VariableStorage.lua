@@ -68,7 +68,7 @@ end
 
 local function setItemDetail(name, chest, slot, suppressSave)
     if not itemDetailsMap[name] then
-        local detail = chest.getItemDetail(slot)
+        local detail = chest.getItemDetail(slot, true) -- true allows the turtle, peripherals only accept one argument
         if detail and detail.displayName then
             -- details.itemGroups is apparently deprecated and the wiki says it's no longer available. but I see it in mc 1.21.7
             itemDetailsMap[name] = {

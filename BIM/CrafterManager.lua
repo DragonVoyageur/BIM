@@ -1,5 +1,7 @@
 --todo add central item handler; this doesn't update item count
 
+assert(turtle, "Requires a crafty turtle.")
+
 --#region Locals--
 local workbench = peripheral.find("workbench")
 local menuError = false
@@ -12,7 +14,6 @@ local screenSize = { screen.getSize() }
 local scrollBar = window.create(mainScreen, screenSize[1] + 1, 1, 1, screenSize[2])
 local recipeMenu = window.create(mainScreen, 1, mainSize[2], mainSize[1], 1)
 
-local buffer
 local colAmount
 local scrollIndex = 0
 local clickMenu = {}
@@ -37,10 +38,21 @@ local function storeFile(name, value)
     end
 end
 
+local function getDisplayName(slot)
+    local name = turtle.getItemDetail(slot).name
+    Vs.setItemDetail(name, turtle, slot)
+    local details = Vs.itemDetailsMap[name]
+    return details.displayName
+end
+
 local function readRecipe()
-    if turtle.getItemDetail(16) == nil then return true end
-    local recipe = {}
-    local filename = turtle.getItemDetail(16, true).displayName
+    local basicResultDetails = turtle.getItemDetail(16)
+    if basicResultDetails == nil then return true end
+    local recipe = {
+        name = basicResultDetails.name,
+        input = {}
+    }
+    local filename = getDisplayName(16)
     local inputEmpty = true
     for _, v in ipairs(workbenchInputSlots) do
         if turtle.getItemCount(v) > 0 then
@@ -50,13 +62,12 @@ local function readRecipe()
 
             local itemData = {
                 name = item.name,
-                count = item.count,
-                maxCount = item.maxCount
             }
-            recipe[v] = itemData
+            recipe.input[v] = itemData
         end
     end
     if inputEmpty then return true end
+
     storeFile(Vs.name .. "/Recipes/" .. filename, recipe)
     selected = 0
     recipes = fs.list(Vs.name .. "/Recipes")
@@ -65,24 +76,16 @@ local function readRecipe()
 end
 
 local function loadFile(name)
-    if name == nil then
-        printError("No file name given")
-        return nil
-    end
-    if not fs.exists(name) then
-        printError(name .. " file not found")
-        return nil
-    end
+    assert(name, "No file name given")
+    assert(fs.exists(name), name .. " file not found")
 
     local file = fs.open(name, 'r')
     if file then
         local serialized = file.readAll()
-        if serialized == nil then
-            return
-        end
-        local value = textutils.unserialise(serialized)
         file.close()
-        return value
+        assert(serialized, name .. " recipe file malformed")
+        local value = textutils.unserialise(serialized)
+        return value or {}
     else
         error("Failed to open " .. name .. " for writing") -- in case of read only / disk full etc.
     end
@@ -98,57 +101,53 @@ local function deleteRecipe()
     return false
 end
 
+---Get if Storage has enough input items
+---@param recipe table The recipe table
+---@param n integer How many crafts to check quanities
+---@return boolean HasEnoughItems
+local function ensureStock(recipe, n)
+    local itemRequirements = {}
+    for _, item in pairs(recipe.input) do -- Find how many are needed in entire recipe
+        itemRequirements[item.name] = itemRequirements[item.name] or 0
+        itemRequirements[item.name] = itemRequirements[item.name] + 1 * (n or 1)
+    end
+    for item, needed in pairs(itemRequirements) do
+        if not Storage:hasNItems(item, needed) then return false end
+    end
+    return true
+end
+
+local function getMinCraftsPerStack(recipe)
+    local maxInput = 64
+    for _, item in pairs(recipe.input) do
+        local max = Vs.itemDetailsMap[item.name].maxCount
+        if max < maxInput then
+            maxInput = max
+        end
+    end
+    return 64 / maxInput
+end
+
 local function craftOne()
     if not workbench then return true end
     if not selected then return true end
     if not fs.exists(Vs.name .. "/Recipes/" .. selected) then return true end
     local recipe = loadFile(Vs.name .. "/Recipes/" .. selected)
-    local list = Vs.chests
-    if recipe == nil or list == nil then return true end
-    --validate and select items
-    local temp = {}
-    for i, item in pairs(recipe) do
-        local counter = item.count
-        local temp2 = {}
-        if list[item.name] == nil then return true end
-        for j, items in pairs(list[item.name]) do
-            if items.count == 0 then
-            elseif counter <= items.count then
-                list[item.name][j].count = list[item.name][j].count - counter
-                table.insert(temp2, textutils.unserialiseJSON(textutils.serialiseJSON(items)))
-                temp2[#temp2].count = counter
-                counter = 0
-            else
-                counter = counter - items.count
-                table.insert(temp2, textutils.unserialiseJSON(textutils.serialiseJSON(items)))
-                list[item.name][j].count = 0
-            end
-            if counter <= 0 then
-                temp[i] = temp2
-                break
-            end
-        end
+    if recipe == nil or Storage.chests == nil then return true end
+    if not ensureStock(recipe, 1) then return true end
 
-        if counter > 0 then
-            return true
-        end
+    for slot, item in pairs(recipe.input) do
+        os.queueEvent("turtle_inventory_ignore")
+        Storage:retrieveItem(item.name, 0.015625)
+        turtle.select(slot)
+        turtle.suckDown()
     end
-    if not next(temp) then return true end
-    for _, v in ipairs(workbenchInputSlots) do
-        if temp[v] ~= nil then
-            for _, item in ipairs(temp[v]) do
-                os.queueEvent("turtle_inventory_ignore")
-                buffer.pullItems(item.side, item.slot, item.count)
-                turtle.select(v)
-                turtle.suckDown()
-            end
-        end
-    end
+
     workbench.craft()
     os.queueEvent("turtle_inventory_ignore")
     turtle.drop()
     os.queueEvent("turtle_inventory_start")
-    Vs.chests = list
+    os.queueEvent("Update_Env")
     return false
 end
 
@@ -157,65 +156,35 @@ local function craftStack()
     if not selected then return true end
     if not fs.exists(Vs.name .. "/Recipes/" .. selected) then return true end
     local recipe = loadFile(Vs.name .. "/Recipes/" .. selected)
-    local list = Vs.chests
-    if recipe == nil or list == nil then return true end
-    --validate and select items
-    local temp = {}
+    if not ensureStock(recipe, Vs.itemDetailsMap[recipe.name].maxCount) then return true end
 
-    local multiplier = math.floor(recipe[1].maxCount / recipe[1].count)
-    for _, item in pairs(recipe) do
-        local tm = math.floor(item.maxCount / item.count)
-        if tm < multiplier then
-            multiplier = tm
+    -- Find the minimum stack size among output and all inputs
+    local minStack = Vs.itemDetailsMap[recipe.name].maxCount
+    for _, item in pairs(recipe.input) do
+        local stackSize = Vs.itemDetailsMap[item.name].maxCount
+        if stackSize < minStack then
+            minStack = stackSize
         end
     end
-    repeat
-        local counter = 1
-        for i, item in pairs(recipe) do
-            if list[item.name] == nil then return true end
-            counter = item.count * multiplier
-            local temp2 = {}
-            for j, items in pairs(list[item.name]) do
-                if items.count == 0 then
-                elseif counter <= items.count then
-                    list[item.name][j].count = list[item.name][j].count - counter
-                    table.insert(temp2, textutils.unserialiseJSON(textutils.serialiseJSON(items)))
-                    temp2[#temp2].count = counter
-                    counter = 0
-                else
-                    counter = counter - items.count
-                    table.insert(temp2, textutils.unserialiseJSON(textutils.serialiseJSON(items)))
-                    list[item.name][j].count = 0
-                end
-                if counter <= 0 then
-                    temp[i] = temp2
-                    break
-                end
-            end
 
-            if counter > 0 then
-                multiplier = math.floor((item.count * multiplier) - counter / item.count)
-                list = Vs.chests
-                break
-            end
+    local nCrafts = getMinCraftsPerStack(recipe)
+    for _ = 1, nCrafts do
+        -- Pull the correct amount for each ingredient
+        for slot, item in pairs(recipe.input) do
+            os.queueEvent("turtle_inventory_ignore")
+            local ingredientStack = Vs.itemDetailsMap[item.name].maxCount
+            local percent = minStack / ingredientStack
+            Storage:retrieveItem(item.name, percent)
+            turtle.select(slot)
+            turtle.suckDown()
         end
-    until counter <= 0
-    if not next(temp) then return true end
-    for _, v in ipairs(workbenchInputSlots) do
-        if temp[v] ~= nil then
-            for _, item in ipairs(temp[v]) do
-                buffer.pullItems(item.side, item.slot, item.count, v)
-                os.queueEvent("turtle_inventory_ignore")
-                turtle.select(v)
-                turtle.suckDown()
-            end
-        end
+        workbench.craft()
+        os.queueEvent("turtle_inventory_ignore")
+        turtle.drop()
     end
-    workbench.craft()
-    os.queueEvent("turtle_inventory_ignore")
-    turtle.drop()
+
     os.queueEvent("turtle_inventory_start")
-    Vs.chests = list
+    os.queueEvent("Update_Env")
     return false
 end
 
@@ -245,17 +214,14 @@ end
 
 local function clickedMenu(x)
     selectedMenu = clickMenu[x]
+    menu()
     if selectedMenu == 1 then
-        menu()
         menuError = craftOne()
     elseif selectedMenu == 2 then
-        menu()
         menuError = craftStack()
     elseif selectedMenu == 3 then
-        menu()
         menuError = readRecipe()
     elseif selectedMenu == 4 then
-        menu()
         menuError = deleteRecipe()
     end
     menu()
@@ -285,7 +251,6 @@ local function loopPrint()
 end
 
 local function loadEnv()
-    buffer = peripheral.wrap(Vs.getEnv("Buffer"))
     colAmount = tonumber(Vs.getEnv("Columns"))
 end
 
@@ -328,6 +293,7 @@ end)
 if not success then
     term.clear()
     term.setCursorPos(1, 1)
+    term.setTextColor(colors.white)
     print(success)
     print(result)
     print(debug.traceback())
