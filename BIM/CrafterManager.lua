@@ -1,10 +1,7 @@
---todo add central item handler; this doesn't update item count
-
 assert(turtle, "Requires a crafty turtle.")
 
 --#region Locals--
 local workbench = peripheral.find("workbench")
-local menuError = false
 local recipes = {}
 local clickList = {}
 local mainScreen = term.current()
@@ -16,9 +13,7 @@ local recipeMenu = window.create(mainScreen, 1, mainSize[2], mainSize[1], 1)
 
 local colAmount
 local scrollIndex = 0
-local clickMenu = {}
 local selected = -1
-local selectedMenu = 0
 
 local workbenchInputSlots = { 1, 2, 3, 5, 6, 7, 9, 10, 11 }
 --#endregion Locals--
@@ -185,47 +180,40 @@ local function craftStack()
     return false
 end
 
-local function menu()
+local buttons = { " Craft one ", " Craft stack ", " Save ", " Delete  " }
+local function menu(selection, menuError)
     if not workbench then
         recipeMenu.setCursorPos(1, 1)
         recipeMenu.write("Requires Crafty Turtle")
         return
     end
-    local buttons = { "Craft one", "Craft stack", "Save", "Delete" }
-    local size = { recipeMenu.getSize() }
-    local padding = size[1]
-    for _, text in ipairs(buttons) do
-        padding = padding - #text
-    end
-    padding = math.floor((padding / #buttons) / 2)
     recipeMenu.setCursorPos(1, 1)
     for i, text in ipairs(buttons) do
-        local pos = { recipeMenu.getCursorPos() }
-        local t = string.rep(' ', padding) .. text .. string.rep(' ', padding)
-        recipeMenu.blit(t, string.rep('f', #t), string.rep(selectedMenu == i and (menuError and 'e' or '7') or '8', #t))
-        for j = pos[1], pos[1] + #t, 1 do
-            clickMenu[j] = i
-        end
+        local bgColor = selection == i and (menuError and 'e' or '7') or '8'
+        recipeMenu.blit(text, string.rep('f', #text), string.rep(bgColor, #text))
     end
 end
 
+local selectionFunctions = { craftOne, craftStack, readRecipe, deleteRecipe }
 local function clickedMenu(x)
-    selectedMenu = clickMenu[x]
-    menu()
-    if selectedMenu == 1 then
-        menuError = craftOne()
-    elseif selectedMenu == 2 then
-        menuError = craftStack()
-    elseif selectedMenu == 3 then
-        menuError = readRecipe()
-    elseif selectedMenu == 4 then
-        menuError = deleteRecipe()
+    local xPos = 0
+    local buttonIndex
+    for i, s in ipairs(buttons) do
+        if x > xPos and x <= xPos + #s then
+            buttonIndex = i
+            break
+        end
+        xPos = xPos + #s
     end
-    menu()
-    sleep(0.5)
-    selectedMenu = 0
-    menuError = false
-    menu()
+
+    menu(buttonIndex) -- darken buttonIndex button
+    if selectionFunctions[buttonIndex] then
+        if selectionFunctions[buttonIndex]() then
+            menu(buttonIndex, true)
+            sleep(0.5)
+        end
+    end
+    menu(0)
 end
 
 local function loopPrint()
@@ -278,7 +266,7 @@ if not fs.exists(Vs.name .. "/Recipes/") then
     fs.makeDir(Vs.name .. "/Recipes")
 end
 
-menu()
+menu(0)
 screen.setCursorPos(1, 1)
 recipes = fs.list(Vs.name .. "/Recipes")
 clickList = Um.Print(recipes, selected, scrollIndex, scrollBar, screen, colAmount)
