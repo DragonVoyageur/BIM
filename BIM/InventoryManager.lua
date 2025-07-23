@@ -3,7 +3,6 @@
 --todo consider allow clicking in the middle of sortString to add text in the center.
 --todo add scrolling when dragging scroll bar
 --todo work with itemGroups
---todo figure out if selected needs to be a table
 
 --#region Locals--
 local settingPath = Vs.name .. '/' .. Vs.name .. '.settings'
@@ -25,7 +24,6 @@ local filtered = {} -- Same structure as Storage.list, except filtered with sear
 local clickList = {}
 local sClickList = {}
 local scrollIndex = 0
-local selected = {}
 local buffer
 local monitor = nil
 
@@ -47,6 +45,13 @@ local colAmount
 --#endregion Locals--
 
 local function trim(s) return s:match("^%s*(.-)%s*$") end
+local function shallowCLone(list)
+    local o = {}
+    for _, v in ipairs(list) do
+        table.insert(o, v)
+    end
+    return o
+end
 
 --#region Functions--
 local function filter(fList)
@@ -55,32 +60,32 @@ local function filter(fList)
         return
     end
 
-    --todo work with item tags using "#"
-    local trimmedSearch = trim(searchText)
-    if trimmedSearch:sub(1, 1) == "@" then -- search by mod
-        local lowerSearchText = trimmedSearch:sub(2) -- exclude '@'
-        local out = {}
+    local trimmedSearch = trim(searchText):lower()
+    local matches = shallowCLone(fList)
+    for str in trimmedSearch:gmatch("([^%s]+)") do
+        --todo work with item tags using "#"
+        local new = {}
+        if str:sub(1, 1) == "@" then -- search by mod
+            local withoutAt = str:sub(2) -- exclude '@'
 
-        for _, v in ipairs(fList) do
-            if v.name:sub(1, #lowerSearchText) == lowerSearchText then
-                table.insert(out, v)
+            for _, v in ipairs(matches) do
+                if v.name:sub(1, #withoutAt) == withoutAt then
+                    table.insert(new, v)
+                end
             end
-        end
-        filtered = out
-        return
-    end
-
-    local lowerSearchText = searchText:lower()
-    local out = {}
-
-    for _, v in ipairs(fList) do
-        local name = Vs.itemDetailsMap[v.name].displayName:lower()
-        if name:find(lowerSearchText, 1, true) then
-            table.insert(out, v)
+            matches = new
+        else
+            for _, v in ipairs(matches) do
+                local name = Vs.itemDetailsMap[v.name].displayName:lower()
+                if name:find(str, 1, true) then
+                    table.insert(new, v)
+                end
+            end
+            matches = new
         end
     end
 
-    filtered = out
+    filtered = matches
 end
 
 local function sortList()
@@ -90,13 +95,13 @@ end
 
 local function printScreen()
     searchBar.setCursorBlink(false)
-    clickList = Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
+    clickList = Um.Print(filtered, -1, scrollIndex, scrollBar, screen, colAmount)
     if searching then
         searchBar.setCursorBlink(true)
         searchBar.setCursorPos(math.min(#searchText, searchLength) + 1, 1)
     end
     if monitor then
-        sClickList = Um.Print(filtered, selected, 0, nil, secondScreen, colAmount)
+        sClickList = Um.Print(filtered, -1, 0, nil, secondScreen, colAmount)
     end
 end
 
@@ -145,15 +150,15 @@ end
 ---@param percentOfStack number 0-1 how much of a stack to pull
 local function dropItem(id, percentOfStack)
     if id == nil or filtered[id] == nil then return nil end
-    selected = { filtered[id] }
+
     local itemName = filtered[id].name
     local _, droppedLastItem = Storage:retrieveItem(itemName, percentOfStack)
     if droppedLastItem then
         table.remove(filtered, id) -- instantly remove from viewed list if none left
     end
 
-    Um.Print(filtered, selected, scrollIndex, scrollBar, screen, colAmount)
-    if monitor then Um.Print(filtered, selected, 0, nil, secondScreen, colAmount) end
+    Um.Print(filtered, id, scrollIndex, scrollBar, screen, colAmount)
+    if monitor then Um.Print(filtered, id, 0, nil, secondScreen, colAmount) end
     turtle.select(16)
     repeat
         os.queueEvent('turtle_inventory_ignore')
@@ -261,7 +266,6 @@ local function loopEnv()
     while true do
         os.pullEvent('Update_Env')
         loadEnv()
-        selected = {}
         scrollIndex = 0
         printScreen()
         os.queueEvent('Updated_Env')
