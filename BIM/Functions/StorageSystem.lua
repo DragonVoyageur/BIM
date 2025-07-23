@@ -220,7 +220,7 @@ function SS:retrieveItem(itemName, percentOfStack)
 end
 
 function SS:hasNItems(item, n)
-    for _, itemslot in ipairs(self.chests[item]) do
+    for _, itemslot in ipairs(self.chests[item] or {}) do
         n = n - itemslot.count
         if n <= 0 then return true end
     end
