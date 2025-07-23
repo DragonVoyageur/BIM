@@ -60,10 +60,7 @@ local function readRecipe()
             local item = turtle.getItemDetail(v, true)
             assert(item, "Failed to getItemDetail")
 
-            local itemData = {
-                name = item.name,
-            }
-            recipe.input[v] = itemData
+            recipe.input[v] = item.name
         end
     end
     if inputEmpty then return true end
@@ -108,8 +105,8 @@ end
 local function ensureStock(recipe, n)
     local itemRequirements = {}
     for _, item in pairs(recipe.input) do -- Find how many are needed in entire recipe
-        itemRequirements[item.name] = itemRequirements[item.name] or 0
-        itemRequirements[item.name] = itemRequirements[item.name] + 1 * (n or 1)
+        itemRequirements[item] = itemRequirements[item] or 0
+        itemRequirements[item] = itemRequirements[item] + 1 * (n or 1)
     end
     for item, needed in pairs(itemRequirements) do
         if not Storage:hasNItems(item, needed) then return false end
@@ -120,7 +117,7 @@ end
 local function getMinCraftsPerStack(recipe)
     local maxInput = 64
     for _, item in pairs(recipe.input) do
-        local max = Vs.itemDetailsMap[item.name].maxCount
+        local max = Vs.itemDetailsMap[item].maxCount
         if max < maxInput then
             maxInput = max
         end
@@ -138,7 +135,7 @@ local function craftOne()
 
     for slot, item in pairs(recipe.input) do
         os.queueEvent("turtle_inventory_ignore")
-        Storage:retrieveItem(item.name, 0.015625)
+        Storage:retrieveItem(item, 0.015625)
         turtle.select(slot)
         turtle.suckDown()
     end
@@ -161,7 +158,7 @@ local function craftStack()
     -- Find the minimum stack size among output and all inputs
     local minStack = Vs.itemDetailsMap[recipe.name].maxCount
     for _, item in pairs(recipe.input) do
-        local stackSize = Vs.itemDetailsMap[item.name].maxCount
+        local stackSize = Vs.itemDetailsMap[item].maxCount
         if stackSize < minStack then
             minStack = stackSize
         end
@@ -172,9 +169,9 @@ local function craftStack()
         -- Pull the correct amount for each ingredient
         for slot, item in pairs(recipe.input) do
             os.queueEvent("turtle_inventory_ignore")
-            local ingredientStack = Vs.itemDetailsMap[item.name].maxCount
+            local ingredientStack = Vs.itemDetailsMap[item].maxCount
             local percent = minStack / ingredientStack
-            Storage:retrieveItem(item.name, percent)
+            Storage:retrieveItem(item, percent)
             turtle.select(slot)
             turtle.suckDown()
         end
