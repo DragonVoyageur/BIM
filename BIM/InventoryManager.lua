@@ -52,6 +52,11 @@ local function shallowCLone(list)
     end
     return o
 end
+local function clamp(x, min, max)
+    if x < min then return min end
+    if x > max then return max end
+    return x
+end
 
 --#region Functions--
 local function filter(fList)
@@ -205,19 +210,12 @@ local function loopPrint()
                     scrollIndex = scrollIndex + event[2]
                     printScreen()
                 end
-            -- elseif event[1] == "key" then
-                -- local validKey = keyscroll[keys.getName(event[2])]
-                -- if validKey then
-                --     if scrollIndex ~= math.min(math.max(scrollIndex + validKey, 0), math.max(math.ceil(#filtered / colAmount) - screenSize[2], 0)) then
-                --         scrollIndex = scrollIndex + event[2]
-                --         printScreen()
-                --     end
-                -- end
-                -- if event[2] == keys.getName(keys.up) then
-
-                -- elseif event[2] == keys.getName(keys.down) then
-                -- end
-                -- printScreen()
+            elseif event[1] == "key" then
+                local validKey = keyscroll[keys.getName(event[2])]
+                if validKey then
+                    scrollIndex = clamp(scrollIndex + validKey, 0, (#filtered / colAmount) - screenSize[2])
+                    printScreen()
+                end
             elseif event[1] == 'mouse_click' and event[4] >= 2 and event[3] < select(1, term.getSize()) then
                 local dropAmount = { 1, 0.5, 0.01 }
                 dropItem(Um.Click(clickList, event[3], event[4]), dropAmount[event[2]])
