@@ -1,28 +1,25 @@
 local Vs
 local function setVs(vsRef) Vs = vsRef end
 
-local metric = { ' ', 'k', 'M', 'G', 'T' }
-local function thousand(count)
-    local c = count
-    local i = 1
-    while (c / 1000) >= 1 do
-        c = math.floor(c / 1000)
-        i = i + 1
-    end
-    if i > 5 then
-        i = 5
-        c = 999
-    end
-    return string.format('%03i%s', c, metric[i])
+local letters = { '', 'k', 'm', 'b', 't', 'qd', 'qt' }
+local function shorthand(n)
+    if n < 1000 then return ("%3d "):format(n) end
+
+    local log = math.log(n, 10)
+    local pwr = math.floor(log / 3)
+    local reduced = n / (1000 ^ pwr)
+    local rounded = math.floor(reduced * 10 + 0.5) / 10
+    local f = (rounded % 1 == 0 and "%3d" or "%3.1f"):format(rounded)
+    return f .. letters[pwr + 1]
 end
 
 local function tableExplore(tb)
     if type(tb) == 'table' then
         local count = tb.count or 0
         local name = Vs.itemDetailsMap[tb.name].displayName
-        return thousand(count) .. ' ' .. tostring(name)
+        return shorthand(count) .. ' ' .. tostring(name)
     elseif type(tb) == 'number' then
-        return thousand(tb) .. ' '
+        return shorthand(tb) .. ' '
     elseif type(tb) == 'nil' then
         return ' '
     else
