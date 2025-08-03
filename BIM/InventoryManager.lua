@@ -268,6 +268,7 @@ local function loopEnv()
         loadEnv()
         scrollIndex = 0
         printScreen()
+        Storage:init(Vs)
         os.queueEvent('Updated_Env')
     end
 end

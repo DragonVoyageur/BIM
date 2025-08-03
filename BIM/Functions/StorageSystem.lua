@@ -18,7 +18,6 @@ function SS:init(newVs)
     end
 
     self.buffer = peripheral.wrap(Vs.getEnv('Buffer'))
-    assert(self.buffer, "Failed to wrap buffer")
 end
 
 function SS:scanStorage()
@@ -105,6 +104,7 @@ function SS:sortStorage()
 end
 
 function SS:pushBufferItemToStorage(chestName, fromSlotIndex, toSlotIndex, itemId)
+    if not self.buffer then return 0 end
     local pushed = self.buffer.pushItems(chestName, fromSlotIndex, 64, toSlotIndex)
     if pushed > 0 then
         -- Update self.chests
@@ -120,6 +120,7 @@ function SS:pushBufferItemToStorage(chestName, fromSlotIndex, toSlotIndex, itemI
 end
 
 function SS:storeBuffer()
+    if not self.buffer then return end
     -- Get buffer inventory
     local bufferItems = self.buffer.list()
     for slot, item in pairs(bufferItems) do
@@ -170,6 +171,7 @@ function SS:storeBuffer()
 end
 
 function SS:retrieveItem(itemName, percentOfStack)
+    if not self.buffer then return false end
     local chestData = self.chests[itemName]
     if not chestData or #chestData == 0 then return false end
 

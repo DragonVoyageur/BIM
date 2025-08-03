@@ -1,4 +1,3 @@
-local Vs
 local function setVs(vsRef) Vs = vsRef end
 
 local letters = { '', 'k', 'm', 'b', 't', 'qd', 'qt' }

@@ -127,6 +127,7 @@ local function craftOne()
     local recipe = loadFile(Vs.name .. "/Recipes/" .. selected)
     if recipe == nil or Storage.chests == nil then return true end
     if not ensureStock(recipe, 1) then return true end
+    if not Storage.buffer then return true end
 
     for slot, item in pairs(recipe.input) do
         os.queueEvent("turtle_inventory_ignore")
@@ -149,6 +150,7 @@ local function craftStack()
     if not fs.exists(Vs.name .. "/Recipes/" .. selected) then return true end
     local recipe = loadFile(Vs.name .. "/Recipes/" .. selected)
     if not ensureStock(recipe, Vs.itemDetailsMap[recipe.name].maxCount) then return true end
+    if not Storage.buffer then return true end
 
     -- Find the minimum stack size among output and all inputs
     local minStack = Vs.itemDetailsMap[recipe.name].maxCount
