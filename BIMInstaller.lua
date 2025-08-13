@@ -9,7 +9,8 @@ ToDownload={
       '/BIM/InventoryManager.lua',
       '/BIM/SettingsManager.lua',
       '/BIM/Functions/UiManager.lua',
-      '/BIM/Functions/VariableStorage.lua'
+      '/BIM/Functions/VariableStorage.lua',
+      '/BIM/Functions/StorageSystem.lua'
     }
   }
 }
@@ -18,7 +19,6 @@ Run='/Startup/StartBIM.lua'--File to run to start program
 -------------------------
 Files={}
 print('Downloading files')
-local error=false
 for i,link in ipairs(ToDownload) do
   for j,directory in ipairs(link[2]) do
     local file=http.get(link[1]..directory)
@@ -33,9 +33,13 @@ end
 --------------
 print('Installing files')
 for i,file in ipairs(Files) do
-  local isntall= fs.open(file[1],'w')
-  isntall.write(file[2])
-  isntall.close()
+  local isntall = fs.open(file[1], 'w')
+  if isntall then
+    isntall.write(file[2])
+    isntall.close()
+  else
+    error("Failed to open " .. file[1] .. " for writing") -- in case of read only / disk full etc.
+  end
 end
 ---------------
 print('Done')
